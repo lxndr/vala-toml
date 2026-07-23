@@ -5,6 +5,7 @@ vala_toml_sources = files(
   'toml-value.vala',
   'toml-table.vala',
   'toml-array.vala',
+  'toml-equal.vala',
 )
 
 vala_toml_lib = library(

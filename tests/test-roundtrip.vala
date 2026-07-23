@@ -1,0 +1,21 @@
+void test_values_equal_ignores_style () {
+    var a = new Toml.Table ();
+    a.set ("k", Toml.Value.from_integer (1));
+    var b = new Toml.Table ();
+    b.set ("k", Toml.Value.from_integer (1));
+    b.style.inline = true;
+    assert (Toml.values_equal (a, b));
+}
+
+void test_values_equal_detects_difference () {
+    var a = Toml.Value.from_string ("x");
+    var b = Toml.Value.from_string ("y");
+    assert (!Toml.values_equal (a, b));
+}
+
+public static int main (string[] args) {
+    Test.init (ref args);
+    Test.add_func ("/toml/values_equal_ignores_style", test_values_equal_ignores_style);
+    Test.add_func ("/toml/values_equal_detects_difference", test_values_equal_detects_difference);
+    return Test.run ();
+}
