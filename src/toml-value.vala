@@ -12,7 +12,7 @@ namespace Toml {
         ARRAY
     }
 
-    public class Value : Object {
+    public class Value {
         public ValueKind kind { get; protected set; }
 
         private uint8[]? string_bytes;
