@@ -14,14 +14,28 @@ namespace Toml {
             return buf.str;
         }
 
+        int resolve_indent (int node_indent) {
+            return node_indent >= 0 ? node_indent : options.indent;
+        }
+
+        void append_spaces (int n) {
+            for (int i = 0; i < n; i++) {
+                buf.append_c (' ');
+            }
+        }
+
         void emit_table_body (Table table, string[] path) throws WriteError {
-            // Key/values first (scalars, arrays, inline tables), then nested standard tables.
+            // Key/values first (scalars, arrays, inline tables, dotted leaves), then nested standard tables / AoT.
             var nested = new Gee.ArrayList<string> ();
 
             foreach (var key in table.keys) {
                 var value = table.get (key);
                 var as_table = value as Table;
                 if (as_table != null && !as_table.style.inline) {
+                    if (table.style.dotted_keys && is_dotted_eligible (as_table)) {
+                        emit_dotted_leaves (new string[] { key }, as_table);
+                        continue;
+                    }
                     nested.add (key);
                     continue;
                 }
@@ -32,7 +46,7 @@ namespace Toml {
                 }
                 emit_key (key);
                 buf.append (" = ");
-                emit_value (value);
+                emit_value (value, 0);
                 buf.append_c ('\n');
             }
 
@@ -49,6 +63,42 @@ namespace Toml {
                 if (as_array != null) {
                     emit_array_of_tables (as_array, append_path (path, key));
                 }
+            }
+        }
+
+        bool is_dotted_eligible (Table table) {
+            if (table.size == 0) {
+                return false;
+            }
+            foreach (var key in table.keys) {
+                var value = table.get (key);
+                var child = value as Table;
+                if (child != null && !child.style.inline) {
+                    if (!is_dotted_eligible (child)) {
+                        return false;
+                    }
+                    continue;
+                }
+                var arr = value as Array;
+                if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        void emit_dotted_leaves (string[] prefix, Table table) throws WriteError {
+            foreach (var key in table.keys) {
+                var value = table.get (key);
+                var child = value as Table;
+                if (child != null && !child.style.inline) {
+                    emit_dotted_leaves (append_path (prefix, key), child);
+                    continue;
+                }
+                emit_key_path (append_path (prefix, key));
+                buf.append (" = ");
+                emit_value (value, 0);
+                buf.append_c ('\n');
             }
         }
 
@@ -129,7 +179,7 @@ namespace Toml {
             return true;
         }
 
-        void emit_value (Value value) throws WriteError {
+        void emit_value (Value value, int base_indent) throws WriteError {
             switch (value.kind) {
             case ValueKind.STRING:
                 emit_basic_string (value.get_string ());
@@ -150,38 +200,111 @@ namespace Toml {
                 buf.append (value.get_raw ());
                 break;
             case ValueKind.TABLE:
-                emit_inline_table ((Table) value);
+                emit_inline_table ((Table) value, base_indent);
                 break;
             case ValueKind.ARRAY:
-                emit_inline_array ((Array) value);
+                emit_inline_array ((Array) value, base_indent);
                 break;
             default:
                 throw new WriteError.FAILED ("unsupported value kind");
             }
         }
 
-        void emit_inline_table (Table table) throws WriteError {
-            buf.append ("{ ");
-            bool first = true;
+        void validate_inline_table (Table table) throws WriteError {
             foreach (var key in table.keys) {
-                if (!first) {
-                    buf.append (", ");
+                var value = table.get (key);
+                var arr = value as Array;
+                if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
+                    throw new WriteError.FAILED ("inline table cannot contain array-of-tables");
                 }
-                first = false;
-                emit_key (key);
-                buf.append (" = ");
-                emit_value (table.get (key));
+                var child = value as Table;
+                if (child != null) {
+                    validate_inline_table (child);
+                }
             }
-            buf.append (" }");
         }
 
-        void emit_inline_array (Array array) throws WriteError {
+        void emit_inline_table (Table table, int base_indent) throws WriteError {
+            validate_inline_table (table);
+
+            if (!table.style.multiline) {
+                buf.append ("{ ");
+                bool first = true;
+                foreach (var key in table.keys) {
+                    if (!first) {
+                        buf.append (", ");
+                    }
+                    first = false;
+                    emit_key (key);
+                    buf.append (" = ");
+                    emit_value (table.get (key), base_indent);
+                }
+                buf.append (" }");
+                return;
+            }
+
+            int ind = resolve_indent (table.style.indent);
+            buf.append ("{\n");
+            bool first_ml = true;
+            foreach (var key in table.keys) {
+                if (!first_ml) {
+                    buf.append (",\n");
+                }
+                first_ml = false;
+                append_spaces (base_indent + ind);
+                emit_key (key);
+                buf.append (" = ");
+                emit_value (table.get (key), base_indent + ind);
+            }
+            buf.append_c ('\n');
+            append_spaces (base_indent);
+            buf.append_c ('}');
+        }
+
+        bool array_has_table_element (Array array) {
+            for (int i = 0; i < array.size; i++) {
+                if (array.get (i) is Table) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void emit_inline_array (Array array, int base_indent) throws WriteError {
+            // Nested non-inline AoT inside a value-position array is illegal.
+            if (is_array_of_tables (array) && !array.style.inline) {
+                throw new WriteError.FAILED ("array-of-tables cannot be emitted in value position without inline style");
+            }
+
+            if (array.style.multiline) {
+                int ind = resolve_indent (array.style.indent);
+                buf.append ("[\n");
+                for (int i = 0; i < array.size; i++) {
+                    if (i > 0) {
+                        buf.append (",\n");
+                    }
+                    append_spaces (base_indent + ind);
+                    emit_value (array.get (i), base_indent + ind);
+                }
+                buf.append_c ('\n');
+                append_spaces (base_indent);
+                buf.append_c (']');
+                return;
+            }
+
+            bool spaced = array_has_table_element (array);
             buf.append_c ('[');
+            if (spaced && array.size > 0) {
+                buf.append_c (' ');
+            }
             for (int i = 0; i < array.size; i++) {
                 if (i > 0) {
                     buf.append (", ");
                 }
-                emit_value (array.get (i));
+                emit_value (array.get (i), base_indent);
+            }
+            if (spaced && array.size > 0) {
+                buf.append_c (' ');
             }
             buf.append_c (']');
         }
