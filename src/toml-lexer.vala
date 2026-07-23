@@ -530,7 +530,7 @@ namespace Toml {
 
         // Try TOML 1.1 date/time from `start` (current pos is after the leading digit run).
         // Returns null if the digit run is not a datetime shape (caller continues as number).
-        Token? try_scan_datetime (int start, int start_line, int start_column) {
+        Token? try_scan_datetime (int start, int start_line, int start_column) throws ParseError {
             string leading = input.substring (start, pos - start);
             if (leading.contains ("_")) {
                 return null;
@@ -569,7 +569,7 @@ namespace Toml {
                     unichar sep = peek ();
                     advance ();
                     if (scan_partial_time ()) {
-                        if (scan_time_offset ()) {
+                        if (scan_time_offset (start_line, start_column)) {
                             string text = input.substring (start, pos - start);
                             return new Token (TokenKind.DATETIME, text, start_line, start_column);
                         }
@@ -645,7 +645,9 @@ namespace Toml {
             return true;
         }
 
-        bool scan_time_offset () {
+        // Returns true if a complete offset was scanned, false if none present.
+        // If +/− is seen, a full ±HH:MM is required — incomplete offsets throw.
+        bool scan_time_offset (int start_line, int start_column) throws ParseError {
             // Z / z / (+|-)HH:MM
             if (pos >= length) {
                 return false;
@@ -658,15 +660,25 @@ namespace Toml {
             if (c != '+' && c != '-') {
                 return false;
             }
+            int after_time = pos;
             advance ();
             if (!consume_n_digits (2)) {
-                return false;
+                pos = after_time;
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "incomplete datetime offset"));
             }
             if (pos >= length || peek () != ':') {
-                return false;
+                pos = after_time;
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "incomplete datetime offset"));
             }
             advance ();
-            return consume_n_digits (2);
+            if (!consume_n_digits (2)) {
+                pos = after_time;
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "incomplete datetime offset"));
+            }
+            return true;
         }
 
         bool consume_n_digits (int n) {

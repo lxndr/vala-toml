@@ -213,6 +213,16 @@ void test_lexer_local_datetime () {
     }
 }
 
+void test_lexer_rejects_incomplete_offset () {
+    var lex = new Toml.Lexer ("1979-05-27T07:32:00+01");
+    try {
+        lex.next ();
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message.contains (":"));
+    }
+}
+
 void test_lexer_local_date () {
     try {
         var lex = new Toml.Lexer ("1979-05-27");
@@ -265,6 +275,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/lexer/rejects_unterminated_string", test_lexer_rejects_unterminated_string);
     Test.add_func ("/toml/lexer/offset_datetime", test_lexer_offset_datetime);
     Test.add_func ("/toml/lexer/local_datetime", test_lexer_local_datetime);
+    Test.add_func ("/toml/lexer/rejects_incomplete_offset", test_lexer_rejects_incomplete_offset);
     Test.add_func ("/toml/lexer/local_date", test_lexer_local_date);
     Test.add_func ("/toml/lexer/local_time", test_lexer_local_time);
     Test.add_func ("/toml/lexer/integer_not_date", test_lexer_integer_not_date);
