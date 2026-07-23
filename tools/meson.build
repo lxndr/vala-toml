@@ -1,0 +1,15 @@
+executable(
+  'vala-toml-decoder',
+  'vala-toml-decoder.vala',
+  dependencies: vala_toml_dep,
+  vala_args: ['--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0'],
+  install: false,
+)
+
+executable(
+  'vala-toml-encoder',
+  'vala-toml-encoder.vala',
+  dependencies: vala_toml_dep,
+  vala_args: ['--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0'],
+  install: false,
+)

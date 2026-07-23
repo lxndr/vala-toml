@@ -19,3 +19,4 @@ vala_toml_deps = [glib_dep, gobject_dep, gio_dep, gee_dep, json_glib_dep]
 
 subdir('src')
 subdir('tests')
+subdir('tools')
