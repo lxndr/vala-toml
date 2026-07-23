@@ -3,20 +3,32 @@ namespace Toml {
     internal class Parser : Object {
         Lexer lexer;
         Token current;
+        Table root;
+        Table current_table;
+        // Tables opened via [header] (not merely created as dotted-key intermediates)
+        Gee.HashSet<Table> explicit_tables;
 
         public Parser (string input) throws ParseError {
             lexer = new Lexer (input);
             current = lexer.next ();
+            explicit_tables = new Gee.HashSet<Table> (
+                (Gee.HashDataFunc<Table>) GLib.direct_hash,
+                (Gee.EqualDataFunc<Table>) GLib.direct_equal);
         }
 
         public Table parse () throws ParseError {
-            var root = new Table ();
+            root = new Table ();
+            current_table = root;
             while (current.kind != TokenKind.EOF) {
                 if (current.kind == TokenKind.NEWLINE) {
                     advance ();
                     continue;
                 }
-                parse_key_value (root);
+                if (current.kind == TokenKind.LBRACKET) {
+                    parse_standard_table_header ();
+                } else {
+                    parse_key_value (current_table);
+                }
                 if (current.kind == TokenKind.NEWLINE) {
                     advance ();
                 } else if (current.kind != TokenKind.EOF) {
@@ -27,11 +39,60 @@ namespace Toml {
             return root;
         }
 
-        void parse_key_value (Table root) throws ParseError {
+        void parse_standard_table_header () throws ParseError {
+            expect (TokenKind.LBRACKET, "expected '['");
+            var path = parse_key_path ();
+            expect (TokenKind.RBRACKET, "expected ']'");
+            current_table = define_standard_table (path);
+        }
+
+        Table define_standard_table (Gee.ArrayList<string> path) throws ParseError {
+            Table table = root;
+            for (int i = 0; i < path.size - 1; i++) {
+                string key = path[i];
+                if (!table.has (key)) {
+                    var child = new Table ();
+                    table.set (key, child);
+                    table = child;
+                    continue;
+                }
+                Value? existing = table.get (key);
+                Table? as_table = existing.as_table ();
+                if (as_table == null) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, "redefining key as table"));
+                }
+                table = as_table;
+            }
+
+            string final_key = path[path.size - 1];
+            if (!table.has (final_key)) {
+                var child = new Table ();
+                table.set (final_key, child);
+                explicit_tables.add (child);
+                return child;
+            }
+
+            Value? existing = table.get (final_key);
+            Table? as_table = existing.as_table ();
+            if (as_table == null) {
+                throw new ParseError.FAILED (
+                    format_parse_error (current.line, current.column, "redefining key as table"));
+            }
+            // TOML 1.1: may open a table previously created as an implicit intermediate
+            if (explicit_tables.contains (as_table)) {
+                throw new ParseError.FAILED (
+                    format_parse_error (current.line, current.column, "redefining table"));
+            }
+            explicit_tables.add (as_table);
+            return as_table;
+        }
+
+        void parse_key_value (Table target) throws ParseError {
             var path = parse_key_path ();
             expect (TokenKind.EQUALS, "expected '='");
             Value value = parse_scalar ();
-            insert_path (root, path, value);
+            insert_path (target, path, value);
         }
 
         Gee.ArrayList<string> parse_key_path () throws ParseError {
@@ -127,8 +188,8 @@ namespace Toml {
             }
         }
 
-        void insert_path (Table root, Gee.ArrayList<string> path, Value value) throws ParseError {
-            Table table = root;
+        void insert_path (Table target, Gee.ArrayList<string> path, Value value) throws ParseError {
+            Table table = target;
             for (int i = 0; i < path.size - 1; i++) {
                 string key = path[i];
                 if (!table.has (key)) {

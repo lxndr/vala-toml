@@ -18,6 +18,15 @@ void test_parse_bool_float () {
     }
 }
 
+void test_parse_standard_table () {
+    try {
+        var t = Toml.parse_string ("[foo]\nbar = 1\n");
+        assert (t.get ("foo").as_table ().get ("bar").get_integer () == 1);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 void test_parse_dotted_key () {
     try {
         var t = Toml.parse_string ("a.b.c = 1\n");
@@ -82,6 +91,7 @@ public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/parser/simple_pair", test_parse_simple_pair);
     Test.add_func ("/toml/parser/bool_float", test_parse_bool_float);
+    Test.add_func ("/toml/parser/standard_table", test_parse_standard_table);
     Test.add_func ("/toml/parser/dotted_key", test_parse_dotted_key);
     Test.add_func ("/toml/parser/duplicate_key_fails", test_parse_duplicate_key_fails);
     Test.add_func ("/toml/parser/input_stream", test_parse_input_stream);
