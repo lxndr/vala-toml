@@ -28,10 +28,44 @@ void test_style_defaults () {
     assert (opts.indent == 2);
 }
 
+void test_table_insertion_order_and_get () {
+    var t = new Toml.Table ();
+    t.set ("b", Toml.Value.from_string ("2"));
+    t.set ("a", Toml.Value.from_integer (1));
+    assert (t.size == 2);
+    assert (t.keys.get (0) == "b");
+    assert (t.keys.get (1) == "a");
+    assert (t.get ("a").get_integer () == 1);
+    assert (t.get ("b").get_string () == "2");
+    assert (t.as_table () == t);
+    assert (t.style.inline == false);
+}
+
+void test_array_basic () {
+    var a = new Toml.Array ();
+    a.add (Toml.Value.from_boolean (true));
+    a.add (Toml.Value.from_float (1.5));
+    assert (a.size == 2);
+    assert (a.get (0).get_boolean () == true);
+    assert (a.get (1).get_float () == 1.5);
+    assert (!a.style.multiline);
+}
+
+void test_nested_table () {
+    var root = new Toml.Table ();
+    var child = new Toml.Table ();
+    child.set ("x", Toml.Value.from_integer (9));
+    root.set ("child", child);
+    assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/library_name", test_library_name);
     Test.add_func ("/toml/parse_error_message", test_parse_error_message);
     Test.add_func ("/toml/style_defaults", test_style_defaults);
+    Test.add_func ("/toml/table_insertion_order_and_get", test_table_insertion_order_and_get);
+    Test.add_func ("/toml/array_basic", test_array_basic);
+    Test.add_func ("/toml/nested_table", test_nested_table);
     return Test.run ();
 }
