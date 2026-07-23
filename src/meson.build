@@ -10,13 +10,14 @@ vala_toml_sources = files(
   'toml-lexer.vala',
   'toml-parser.vala',
   'toml-writer.vala',
+  'toml-json.vala',
 )
 
 vala_toml_lib = library(
   'vala-toml',
   vala_toml_sources,
   dependencies: vala_toml_deps,
-  vala_args: ['--pkg', 'gee-0.8'],
+  vala_args: ['--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0'],
   install: true,
 )
 

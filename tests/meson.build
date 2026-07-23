@@ -42,3 +42,12 @@ test_writer = executable(
 )
 
 test('writer', test_writer)
+
+test_json = executable(
+  'test-json',
+  'test-json.vala',
+  dependencies: vala_toml_dep,
+  vala_args: ['--pkg', 'gee-0.8'],
+)
+
+test('json', test_json)
