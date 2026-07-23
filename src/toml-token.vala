@@ -23,12 +23,12 @@ namespace Toml {
         TIME_LOCAL
     }
 
-    public class Token : Object {
-        public TokenKind kind { get; private set; }
-        public string text { get; private set; }
+    public struct Token {
+        public TokenKind kind;
+        public string text;
         public uint8[]? bytes;
-        public int line { get; private set; }
-        public int column { get; private set; }
+        public int line;
+        public int column;
 
         public Token (TokenKind kind, string text, int line, int column) {
             this.kind = kind;
@@ -47,7 +47,6 @@ namespace Toml {
         }
 
         static string bytes_to_visible_text (uint8[] bytes) {
-            // For tests / keys without NUL: rebuild via StringBuilder.len then str when NUL-free.
             for (int i = 0; i < bytes.length; i++) {
                 if (bytes[i] == 0) {
                     return "";
