@@ -5,13 +5,18 @@ namespace Toml {
         Token current;
         Table root;
         Table current_table;
-        // Tables opened via [header] (not merely created as dotted-key intermediates)
+        // Tables opened via [header] (final segment of a header path)
         Gee.HashSet<Table> explicit_tables;
+        // Tables created as dotted-key / key-value intermediates (cannot be reopened via [header])
+        Gee.HashSet<Table> dotted_tables;
 
         public Parser (string input) throws ParseError {
             lexer = new Lexer (input);
             current = lexer.next ();
             explicit_tables = new Gee.HashSet<Table> (
+                (Gee.HashDataFunc<Table>) GLib.direct_hash,
+                (Gee.EqualDataFunc<Table>) GLib.direct_equal);
+            dotted_tables = new Gee.HashSet<Table> (
                 (Gee.HashDataFunc<Table>) GLib.direct_hash,
                 (Gee.EqualDataFunc<Table>) GLib.direct_equal);
         }
@@ -79,7 +84,12 @@ namespace Toml {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, "redefining key as table"));
             }
-            // TOML 1.1: may open a table previously created as an implicit intermediate
+            // Dotted-key / kv intermediates cannot be reopened with [header]
+            if (dotted_tables.contains (as_table)) {
+                throw new ParseError.FAILED (
+                    format_parse_error (current.line, current.column, "redefining dotted-key table"));
+            }
+            // TOML 1.1: may open a table previously created as a header-path intermediate
             if (explicit_tables.contains (as_table)) {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, "redefining table"));
@@ -195,6 +205,7 @@ namespace Toml {
                 if (!table.has (key)) {
                     var child = new Table ();
                     table.set (key, child);
+                    dotted_tables.add (child);
                     table = child;
                     continue;
                 }
@@ -203,6 +214,11 @@ namespace Toml {
                 if (as_table == null) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, "duplicate key"));
+                }
+                // Using an existing table as a dotted-key intermediate marks it dotted
+                // (unless it was already opened explicitly via [header]).
+                if (!explicit_tables.contains (as_table)) {
+                    dotted_tables.add (as_table);
                 }
                 table = as_table;
             }

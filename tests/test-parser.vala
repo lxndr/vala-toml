@@ -36,6 +36,47 @@ void test_parse_dotted_key () {
     }
 }
 
+void test_parse_dotted_key_then_header_fails () {
+    try {
+        Toml.parse_string ("a.b.c = 1\n[a.b]\n");
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.length > 0);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_value_then_header_fails () {
+    try {
+        Toml.parse_string ("a.b = 1\n[a.b]\n");
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.length > 0);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_header_then_dotted_key () {
+    try {
+        var t = Toml.parse_string ("[a]\nb.c = 1\n");
+        assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_header_implicit_reopen () {
+    try {
+        var t = Toml.parse_string ("[a.b]\nc = 1\n[a]\nd = 2\n");
+        assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
+        assert (t.get ("a").as_table ().get ("d").get_integer () == 2);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 void test_parse_duplicate_key_fails () {
     try {
         Toml.parse_string ("x = 1\nx = 2\n");
@@ -93,6 +134,10 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/bool_float", test_parse_bool_float);
     Test.add_func ("/toml/parser/standard_table", test_parse_standard_table);
     Test.add_func ("/toml/parser/dotted_key", test_parse_dotted_key);
+    Test.add_func ("/toml/parser/dotted_key_then_header_fails", test_parse_dotted_key_then_header_fails);
+    Test.add_func ("/toml/parser/value_then_header_fails", test_parse_value_then_header_fails);
+    Test.add_func ("/toml/parser/header_then_dotted_key", test_parse_header_then_dotted_key);
+    Test.add_func ("/toml/parser/header_implicit_reopen", test_parse_header_implicit_reopen);
     Test.add_func ("/toml/parser/duplicate_key_fails", test_parse_duplicate_key_fails);
     Test.add_func ("/toml/parser/input_stream", test_parse_input_stream);
     Test.add_func ("/toml/parser/numeric_bare_key", test_parse_numeric_bare_key);
