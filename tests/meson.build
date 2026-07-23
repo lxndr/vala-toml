@@ -33,3 +33,12 @@ test_parser = executable(
 )
 
 test('parser', test_parser)
+
+test_writer = executable(
+  'test-writer',
+  'test-writer.vala',
+  dependencies: vala_toml_dep,
+  vala_args: ['--pkg', 'gee-0.8'],
+)
+
+test('writer', test_writer)

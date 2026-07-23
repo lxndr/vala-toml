@@ -33,4 +33,19 @@ namespace Toml {
             throw new ParseError.FAILED (e.message);
         }
     }
+
+    public string write_string (Table root, WriteOptions? options = null) throws WriteError {
+        var writer = new Writer (options);
+        return writer.emit (root);
+    }
+
+    public void write (Table root, OutputStream stream, WriteOptions? options = null) throws WriteError {
+        string text = write_string (root, options);
+        try {
+            size_t written;
+            stream.write_all (text.data, out written);
+        } catch (Error e) {
+            throw new WriteError.FAILED (e.message);
+        }
+    }
 }
