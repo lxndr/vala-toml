@@ -150,6 +150,19 @@ void test_parse_inline_table_neutral_style () {
     }
 }
 
+void test_parse_array_of_tables () {
+    try {
+        var t = Toml.parse_string ("[[products]]\nname = \"A\"\n[[products]]\nname = \"B\"\n");
+        var a = t.get ("products").as_array ();
+        assert (a.size == 2);
+        assert (a.get (0).as_table ().get ("name").get_string () == "A");
+        assert (a.get (1).as_table ().get ("name").get_string () == "B");
+        assert (!a.style.inline);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/parser/simple_pair", test_parse_simple_pair);
@@ -167,5 +180,6 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/signed_integer_key_fails", test_parse_signed_integer_key_fails);
     Test.add_func ("/toml/parser/array", test_parse_array);
     Test.add_func ("/toml/parser/inline_table_neutral_style", test_parse_inline_table_neutral_style);
+    Test.add_func ("/toml/parser/array_of_tables", test_parse_array_of_tables);
     return Test.run ();
 }

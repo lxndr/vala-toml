@@ -29,7 +29,9 @@ namespace Toml {
                     advance ();
                     continue;
                 }
-                if (current.kind == TokenKind.LBRACKET) {
+                if (current.kind == TokenKind.DOUBLE_LBRACKET) {
+                    parse_array_of_tables_header ();
+                } else if (current.kind == TokenKind.LBRACKET) {
                     parse_standard_table_header ();
                 } else {
                     parse_key_value (current_table);
@@ -51,7 +53,14 @@ namespace Toml {
             current_table = define_standard_table (path);
         }
 
-        Table define_standard_table (Gee.ArrayList<string> path) throws ParseError {
+        void parse_array_of_tables_header () throws ParseError {
+            expect (TokenKind.DOUBLE_LBRACKET, "expected '[['");
+            var path = parse_key_path ();
+            expect (TokenKind.DOUBLE_RBRACKET, "expected ']]'");
+            current_table = define_array_of_tables (path);
+        }
+
+        Table resolve_header_parent (Gee.ArrayList<string> path) throws ParseError {
             Table table = root;
             for (int i = 0; i < path.size - 1; i++) {
                 string key = path[i];
@@ -63,12 +72,54 @@ namespace Toml {
                 }
                 Value? existing = table.get (key);
                 Table? as_table = existing.as_table ();
-                if (as_table == null) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, "redefining key as table"));
+                if (as_table != null) {
+                    table = as_table;
+                    continue;
                 }
-                table = as_table;
+                Array? as_array = existing.as_array ();
+                if (as_array != null) {
+                    if (as_array.size == 0) {
+                        throw new ParseError.FAILED (
+                            format_parse_error (current.line, current.column, "empty array of tables"));
+                    }
+                    Table? last = as_array.get (as_array.size - 1).as_table ();
+                    if (last == null) {
+                        throw new ParseError.FAILED (
+                            format_parse_error (current.line, current.column, "array of tables element is not a table"));
+                    }
+                    table = last;
+                    continue;
+                }
+                throw new ParseError.FAILED (
+                    format_parse_error (current.line, current.column, "redefining key as table"));
             }
+            return table;
+        }
+
+        Table define_array_of_tables (Gee.ArrayList<string> path) throws ParseError {
+            Table table = resolve_header_parent (path);
+            string final_key = path[path.size - 1];
+            Array array;
+            if (!table.has (final_key)) {
+                array = new Array ();
+                table.set (final_key, array);
+            } else {
+                Value? existing = table.get (final_key);
+                Array? as_array = existing.as_array ();
+                if (as_array == null) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, "redefining key as array of tables"));
+                }
+                array = as_array;
+            }
+            var child = new Table ();
+            array.add (child);
+            explicit_tables.add (child);
+            return child;
+        }
+
+        Table define_standard_table (Gee.ArrayList<string> path) throws ParseError {
+            Table table = resolve_header_parent (path);
 
             string final_key = path[path.size - 1];
             if (!table.has (final_key)) {
