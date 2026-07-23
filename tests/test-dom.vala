@@ -9,18 +9,18 @@ void test_parse_error_message () {
 }
 
 void test_style_defaults () {
-    var ts = new Toml.TableStyle ();
+    var ts = Toml.TableStyle ();
     assert (!ts.inline);
     assert (!ts.dotted_keys);
     assert (!ts.multiline);
     assert (ts.indent == -1);
 
-    var as_ = new Toml.ArrayStyle ();
+    var as_ = Toml.ArrayStyle ();
     assert (!as_.inline);
     assert (!as_.multiline);
     assert (as_.indent == -1);
 
-    var opts = new Toml.WriteOptions ();
+    var opts = Toml.WriteOptions ();
     assert (opts.indent == 2);
 }
 

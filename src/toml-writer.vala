@@ -4,7 +4,7 @@ namespace Toml {
         private StringBuilder buf;
 
         public Writer (WriteOptions? options) {
-            this.options = options ?? new WriteOptions ();
+            this.options = options ?? WriteOptions ();
             this.buf = new StringBuilder ();
         }
 
