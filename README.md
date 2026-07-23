@@ -8,7 +8,6 @@ Vala library for TOML 1.1: parse into a DOM, mutate values and structure, and em
 - `meson` (>= 1.0.0)
 - `glib` (GLib / GObject / GIO)
 - `gee-0.8`
-- `json-glib`
 - `go` (optional, for installing `toml-test`)
 
 ## Build

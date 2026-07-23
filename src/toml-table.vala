@@ -27,7 +27,7 @@ namespace Toml {
             }
         }
 
-        public Gee.List<Bytes> key_bytes_list {
+        internal Gee.List<Bytes> key_bytes_list {
             get { return key_bytes_order; }
         }
 
