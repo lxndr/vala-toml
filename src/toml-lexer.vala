@@ -1,6 +1,6 @@
 namespace Toml {
     // public for v1: tests link via generated .vapi, which omits `internal` types
-    public class Lexer : Object {
+    public class Lexer {
         string input;
         int pos;
         int line;
