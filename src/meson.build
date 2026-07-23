@@ -1,6 +1,7 @@
 vala_toml_sources = files(
   'toml.vala',
   'toml-error.vala',
+  'toml-style.vala',
 )
 
 vala_toml_lib = library(
