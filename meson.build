@@ -17,5 +17,9 @@ gee_dep = dependency('gee-0.8')
 vala_toml_deps = [glib_dep, gobject_dep, gio_dep, gee_dep]
 
 subdir('src')
-subdir('tests')
-subdir('tools')
+meson.override_dependency('vala-toml', vala_toml_dep)
+
+if not meson.is_subproject()
+  subdir('tests')
+  subdir('tools')
+endif

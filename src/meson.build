@@ -13,12 +13,12 @@ vala_toml_sources = files(
   'toml-json.vala',
 )
 
-vala_toml_lib = library(
+vala_toml_lib = static_library(
   'vala-toml',
   vala_toml_sources,
   dependencies: vala_toml_deps,
   vala_args: ['--pkg', 'gee-0.8'],
-  install: true,
+  install: false,
 )
 
 vala_toml_dep = declare_dependency(
