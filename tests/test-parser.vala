@@ -49,6 +49,35 @@ void test_parse_input_stream () {
     }
 }
 
+void test_parse_numeric_bare_key () {
+    try {
+        var t = Toml.parse_string ("123 = 1\n");
+        assert (t.get ("123").get_integer () == 1);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_date_shaped_bare_key () {
+    try {
+        var t = Toml.parse_string ("1979-05-27 = 1\n");
+        assert (t.get ("1979-05-27").get_integer () == 1);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_signed_integer_key_fails () {
+    try {
+        Toml.parse_string ("+1 = 1\n");
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.length > 0);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/parser/simple_pair", test_parse_simple_pair);
@@ -56,5 +85,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/dotted_key", test_parse_dotted_key);
     Test.add_func ("/toml/parser/duplicate_key_fails", test_parse_duplicate_key_fails);
     Test.add_func ("/toml/parser/input_stream", test_parse_input_stream);
+    Test.add_func ("/toml/parser/numeric_bare_key", test_parse_numeric_bare_key);
+    Test.add_func ("/toml/parser/date_shaped_bare_key", test_parse_date_shaped_bare_key);
+    Test.add_func ("/toml/parser/signed_integer_key_fails", test_parse_signed_integer_key_fails);
     return Test.run ();
 }

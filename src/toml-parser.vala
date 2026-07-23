@@ -50,20 +50,33 @@ namespace Toml {
                 advance ();
                 return key;
             }
-            // bare true/false/inf/nan may appear as KEY-like identifiers lexed as keywords
-            if (current.kind == TokenKind.BOOLEAN || current.kind == TokenKind.FLOAT
-                || current.kind == TokenKind.INTEGER) {
-                // INTEGER cannot be a bare key; BOOLEAN/FLOAT (inf/nan) are valid bare keys in TOML
-                if (current.kind == TokenKind.INTEGER) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, "expected key"));
-                }
+            // Lexer may emit BOOLEAN/FLOAT/INTEGER/DATE_LOCAL for bare-key-shaped text
+            // (true, inf, 123, 1979-05-27). Accept when text is a valid bare key [A-Za-z0-9_-]+.
+            if ((current.kind == TokenKind.BOOLEAN || current.kind == TokenKind.FLOAT
+                 || current.kind == TokenKind.INTEGER || current.kind == TokenKind.DATE_LOCAL)
+                && is_bare_key_text (current.text)) {
                 string key = current.text;
                 advance ();
                 return key;
             }
             throw new ParseError.FAILED (
                 format_parse_error (current.line, current.column, "expected key"));
+        }
+
+        static bool is_bare_key_text (string text) {
+            if (text.length == 0) {
+                return false;
+            }
+            for (int i = 0; i < text.length; ) {
+                unichar c;
+                if (!text.get_next_char (ref i, out c)) {
+                    return false;
+                }
+                if (!(c.isalpha () || c.isdigit () || c == '_' || c == '-')) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         Value parse_scalar () throws ParseError {
