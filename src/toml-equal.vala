@@ -12,6 +12,7 @@ namespace Toml {
 
         switch (a.kind) {
         case ValueKind.STRING:
+            return Value.bytes_equal (a.get_string_bytes (), b.get_string_bytes ());
         case ValueKind.DATETIME:
         case ValueKind.DATETIME_LOCAL:
         case ValueKind.DATE_LOCAL:
@@ -39,11 +40,12 @@ namespace Toml {
         if (a.size != b.size) {
             return false;
         }
-        foreach (var key in a.keys) {
-            if (!b.has (key)) {
+        for (int i = 0; i < a.key_bytes_list.size; i++) {
+            uint8[] kb = a.key_bytes_list[i].get_data ();
+            if (!b.has_bytes (kb)) {
                 return false;
             }
-            if (!values_equal (a.get (key), b.get (key))) {
+            if (!values_equal (a.get_bytes (kb), b.get_bytes (kb))) {
                 return false;
             }
         }

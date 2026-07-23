@@ -4,7 +4,19 @@ namespace Toml {
     }
 
     public Table parse_string (string text) throws ParseError {
+        validate_source_bytes (text.data);
         var parser = new Parser (text);
+        return parser.parse ();
+    }
+
+    public Table parse_bytes (uint8[] data) throws ParseError {
+        validate_source_bytes (data);
+        // Source bytes must not contain embedded NUL (controls rejected). Safe as Vala string.
+        var sb = new StringBuilder ();
+        if (data.length > 0) {
+            sb.append_len ((string) data, data.length);
+        }
+        var parser = new Parser (sb.str);
         return parser.parse ();
     }
 
@@ -18,15 +30,9 @@ namespace Toml {
                 return parse_string ("");
             }
             unowned uint8[] data = mos.get_data ();
-            // Copy with NUL terminator for a valid UTF-8 string view
-            var buf = new uint8[len + 1];
-            Memory.copy (buf, data, len);
-            buf[len] = 0;
-            string text = (string) buf;
-            if (!text.validate ()) {
-                throw new ParseError.FAILED ("invalid UTF-8");
-            }
-            return parse_string (text);
+            var copy = new uint8[len];
+            Memory.copy (copy, data, len);
+            return parse_bytes (copy);
         } catch (ParseError e) {
             throw e;
         } catch (Error e) {
@@ -46,6 +52,35 @@ namespace Toml {
             stream.write_all (text.data, out written);
         } catch (Error e) {
             throw new WriteError.FAILED (e.message);
+        }
+    }
+
+    private void validate_source_bytes (uint8[] data) throws ParseError {
+        if (data.length == 0) {
+            return;
+        }
+        char* end;
+        if (!((string) data).validate (data.length, out end)) {
+            throw new ParseError.FAILED ("invalid UTF-8");
+        }
+        int i = 0;
+        while (i < data.length) {
+            uint8 b = data[i];
+            if (b == (uint8) '\t' || b == (uint8) '\n') {
+                i++;
+                continue;
+            }
+            if (b == (uint8) '\r') {
+                if (i + 1 >= data.length || data[i + 1] != (uint8) '\n') {
+                    throw new ParseError.FAILED ("bare carriage return");
+                }
+                i += 2;
+                continue;
+            }
+            if (b < 0x20 || b == 0x7F) {
+                throw new ParseError.FAILED ("invalid control character");
+            }
+            i++;
         }
     }
 }

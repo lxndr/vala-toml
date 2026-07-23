@@ -28,6 +28,7 @@ void test_lexer_skips_comment () {
 void test_lexer_brackets () {
     try {
         var lex = new Toml.Lexer ("[[]]");
+        lex.key_mode = true;
         assert (lex.next ().kind == Toml.TokenKind.DOUBLE_LBRACKET);
         assert (lex.next ().kind == Toml.TokenKind.DOUBLE_RBRACKET);
     } catch (Error e) {

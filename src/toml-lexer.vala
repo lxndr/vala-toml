@@ -6,6 +6,7 @@ namespace Toml {
         int line;
         int column;
         int length;
+        public bool key_mode;
 
         public Lexer (string input) {
             this.input = input;
@@ -13,6 +14,7 @@ namespace Toml {
             this.pos = 0;
             this.line = 1;
             this.column = 1;
+            this.key_mode = false;
         }
 
         public Token next () throws ParseError {
@@ -30,10 +32,13 @@ namespace Toml {
                 return new Token (TokenKind.NEWLINE, "\n", start_line, start_column);
             }
             if (c == '\r') {
-                advance ();
-                if (pos < length && peek () == '\n') {
-                    advance ();
+                // Bare CR is not a valid newline; only CRLF is accepted.
+                if (pos + 1 >= length || input.get_char (pos + 1) != '\n') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "bare carriage return"));
                 }
+                advance ();
+                advance ();
                 return new Token (TokenKind.NEWLINE, "\n", start_line, start_column);
             }
 
@@ -59,7 +64,8 @@ namespace Toml {
             }
             if (c == '[') {
                 advance ();
-                if (pos < length && peek () == '[') {
+                // Only combine [[ in key/header mode so nested value arrays keep single brackets.
+                if (key_mode && pos < length && peek () == '[') {
                     advance ();
                     return new Token (TokenKind.DOUBLE_LBRACKET, "[[", start_line, start_column);
                 }
@@ -67,7 +73,7 @@ namespace Toml {
             }
             if (c == ']') {
                 advance ();
-                if (pos < length && peek () == ']') {
+                if (key_mode && pos < length && peek () == ']') {
                     advance ();
                     return new Token (TokenKind.DOUBLE_RBRACKET, "]]", start_line, start_column);
                 }
@@ -78,6 +84,11 @@ namespace Toml {
                 return scan_string (start_line, start_column);
             }
 
+            // In key mode, digits / '-' / '_' start bare keys (e.g. 10e3, 34-11, -key).
+            if (key_mode && is_bare_key_char (c)) {
+                return scan_bare_key (start_line, start_column);
+            }
+
             if (c == '+' || c == '-' || c.isdigit ()) {
                 return scan_number_or_datetime (start_line, start_column);
             }
@@ -86,11 +97,16 @@ namespace Toml {
                 return scan_ident_or_keyword (start_line, start_column);
             }
 
+            if (is_bare_control (c)) {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "invalid control character"));
+            }
+
             throw new ParseError.FAILED (
                 format_parse_error (start_line, start_column, "unexpected character"));
         }
 
-        void skip_whitespace_and_comments () {
+        void skip_whitespace_and_comments () throws ParseError {
             while (pos < length) {
                 unichar c = peek ();
                 if (c == ' ' || c == '\t') {
@@ -98,13 +114,26 @@ namespace Toml {
                     continue;
                 }
                 if (c == '#') {
+                    advance ();
                     while (pos < length && peek () != '\n' && peek () != '\r') {
+                        unichar cc = peek ();
+                        if (is_bare_control (cc)) {
+                            throw new ParseError.FAILED (
+                                format_parse_error (line, column, "invalid control character in comment"));
+                        }
                         advance ();
                     }
                     continue;
                 }
                 break;
             }
+        }
+
+        static bool is_bare_control (unichar c) {
+            if (c == '\t' || c == '\n' || c == '\r') {
+                return false;
+            }
+            return c <= 0x1F || c == 0x7F;
         }
 
         Token scan_string (int start_line, int start_column) throws ParseError {
@@ -114,6 +143,10 @@ namespace Toml {
                 && input.get_char (pos + 2) == quote);
 
             if (triple) {
+                if (key_mode) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "multiline key"));
+                }
                 advance ();
                 advance ();
                 advance ();
@@ -134,13 +167,27 @@ namespace Toml {
             return scan_literal_string (start_line, start_column);
         }
 
+        Token token_from_builder (StringBuilder buf, int start_line, int start_column) {
+            uint8[] bytes = buf.data[0:buf.len];
+            return new Token.with_bytes (TokenKind.STRING, bytes, start_line, start_column);
+        }
+
+        Token scan_bare_key (int start_line, int start_column) {
+            int start = pos;
+            while (pos < length && is_bare_key_char (peek ())) {
+                advance ();
+            }
+            string text = input.substring (start, pos - start);
+            return new Token (TokenKind.KEY, text, start_line, start_column);
+        }
+
         Token scan_basic_string (int start_line, int start_column) throws ParseError {
             var buf = new StringBuilder ();
             while (pos < length) {
                 unichar c = peek ();
                 if (c == '"') {
                     advance ();
-                    return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                    return token_from_builder (buf, start_line, start_column);
                 }
                 if (c == '\n' || c == '\r') {
                     throw new ParseError.FAILED (
@@ -168,7 +215,7 @@ namespace Toml {
                 unichar c = peek ();
                 if (c == '\'') {
                     advance ();
-                    return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                    return token_from_builder (buf, start_line, start_column);
                 }
                 if (c == '\n' || c == '\r') {
                     throw new ParseError.FAILED (
@@ -203,7 +250,7 @@ namespace Toml {
                         for (int i = 0; i < count; i++) {
                             advance ();
                         }
-                        return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                        return token_from_builder (buf, start_line, start_column);
                     }
                     // 1 or 2 quotes as content
                     for (int i = 0; i < count; i++) {
@@ -255,7 +302,7 @@ namespace Toml {
                         for (int i = 0; i < count; i++) {
                             advance ();
                         }
-                        return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                        return token_from_builder (buf, start_line, start_column);
                     }
                     for (int i = 0; i < count; i++) {
                         advance ();
@@ -328,15 +375,17 @@ namespace Toml {
             }
         }
 
-        void consume_newline () {
+        void consume_newline () throws ParseError {
             if (pos >= length) {
                 return;
             }
             if (peek () == '\r') {
                 advance ();
-                if (pos < length && peek () == '\n') {
-                    advance ();
+                if (pos >= length || peek () != '\n') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "bare carriage return"));
                 }
+                advance ();
             } else if (peek () == '\n') {
                 advance ();
             }
@@ -468,24 +517,35 @@ namespace Toml {
                     format_parse_error (start_line, start_column, "invalid number"));
             }
 
-            // 0x / 0o / 0b (unsigned only)
+            // 0x / 0o / 0b (unsigned only; lowercase prefix required)
             if (!signed && peek () == '0' && pos + 1 < length) {
                 unichar kind = input.get_char (pos + 1);
-                if (kind == 'x' || kind == 'X') {
+                if (kind == 'x') {
                     return scan_prefixed_integer (start, start_line, start_column, is_hex_digit);
                 }
-                if (kind == 'o' || kind == 'O') {
+                if (kind == 'o') {
                     return scan_prefixed_integer (start, start_line, start_column, is_oct_digit);
                 }
-                if (kind == 'b' || kind == 'B') {
+                if (kind == 'b') {
                     return scan_prefixed_integer (start, start_line, start_column, is_bin_digit);
+                }
+                if (kind == 'X' || kind == 'O' || kind == 'B') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "capitalized integer prefix"));
                 }
             }
 
+            int int_start = pos;
             if (!scan_decimal_digits ()) {
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "invalid number"));
             }
+            // Reject trailing underscore left unconsumed by digit scanner
+            if (pos < length && peek () == '_') {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "trailing underscore in number"));
+            }
+            string int_digits = input.substring (int_start, pos - int_start).replace ("_", "");
 
             // Prefer TOML 1.1 datetime productions over integers when the shape matches
             if (!signed) {
@@ -509,6 +569,10 @@ namespace Toml {
                     throw new ParseError.FAILED (
                         format_parse_error (start_line, start_column, "invalid float"));
                 }
+                if (pos < length && peek () == '_') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "trailing underscore in number"));
+                }
                 is_float = true;
             }
 
@@ -517,8 +581,21 @@ namespace Toml {
                 if (peek () == '+' || peek () == '-') {
                     advance ();
                 }
-                scan_decimal_digits ();
+                if (!scan_decimal_digits ()) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "invalid float"));
+                }
+                if (pos < length && peek () == '_') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "trailing underscore in number"));
+                }
                 is_float = true;
+            }
+
+            // Leading zeros forbidden except for a single 0 before . / e
+            if (int_digits.length > 1 && int_digits[0] == '0') {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "leading zero"));
             }
 
             string text = input.substring (start, pos - start);
@@ -544,10 +621,14 @@ namespace Toml {
                     return null;
                 }
                 pos = start;
-                if (!scan_partial_time ()) {
+                int hour = 0;
+                int minute = 0;
+                int second = 0;
+                if (!scan_partial_time (out hour, out minute, out second)) {
                     pos = saved;
                     return null;
                 }
+                validate_time_parts (hour, minute, second, start_line, start_column);
                 string text = input.substring (start, pos - start);
                 return new Token (TokenKind.TIME_LOCAL, text, start_line, start_column);
             }
@@ -558,18 +639,33 @@ namespace Toml {
                     return null;
                 }
                 pos = start;
-                if (!scan_full_date ()) {
+                int year = 0;
+                int month = 0;
+                int day = 0;
+                if (!scan_full_date (out year, out month, out day)) {
                     pos = saved;
                     return null;
                 }
+                validate_date_parts (year, month, day, start_line, start_column);
 
                 // Optional date/time separator + partial-time
                 if (pos < length && is_date_time_separator (peek ())) {
                     int after_date = pos;
                     unichar sep = peek ();
                     advance ();
-                    if (scan_partial_time ()) {
-                        if (scan_time_offset (start_line, start_column)) {
+                    int hour = 0;
+                    int minute = 0;
+                    int second = 0;
+                    if (scan_partial_time (out hour, out minute, out second)) {
+                        validate_time_parts (hour, minute, second, start_line, start_column);
+                        int oh = 0;
+                        int om = 0;
+                        bool has_off = scan_time_offset (start_line, start_column, out oh, out om);
+                        if (has_off) {
+                            if (oh > 23 || om > 59) {
+                                throw new ParseError.FAILED (
+                                    format_parse_error (start_line, start_column, "invalid datetime offset"));
+                            }
                             string text = input.substring (start, pos - start);
                             return new Token (TokenKind.DATETIME, text, start_line, start_column);
                         }
@@ -592,46 +688,97 @@ namespace Toml {
             return null;
         }
 
+        void validate_date_parts (int year, int month, int day, int line, int column) throws ParseError {
+            if (month < 1 || month > 12 || day < 1 || day > days_in_month (year, month)) {
+                throw new ParseError.FAILED (
+                    format_parse_error (line, column, "invalid date"));
+            }
+        }
+
+        void validate_time_parts (int hour, int minute, int second, int line, int column) throws ParseError {
+            if (hour > 23 || minute > 59 || second > 59) {
+                throw new ParseError.FAILED (
+                    format_parse_error (line, column, "invalid time"));
+            }
+        }
+
+        static int days_in_month (int year, int month) {
+            switch (month) {
+            case 1: case 3: case 5: case 7: case 8: case 10: case 12:
+                return 31;
+            case 4: case 6: case 9: case 11:
+                return 30;
+            case 2:
+                if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) {
+                    return 29;
+                }
+                return 28;
+            default:
+                return 0;
+            }
+        }
+
         static bool is_date_time_separator (unichar c) {
             return c == 'T' || c == 't' || c == ' ';
         }
 
-        bool scan_full_date () {
+        bool scan_full_date (out int year, out int month, out int day) {
+            year = 0;
+            month = 0;
+            day = 0;
             // YYYY-MM-DD
+            int y0 = pos;
             if (!consume_n_digits (4)) {
                 return false;
             }
+            year = int.parse (input.substring (y0, 4));
             if (pos >= length || peek () != '-') {
                 return false;
             }
             advance ();
+            int m0 = pos;
             if (!consume_n_digits (2)) {
                 return false;
             }
+            month = int.parse (input.substring (m0, 2));
             if (pos >= length || peek () != '-') {
                 return false;
             }
             advance ();
-            return consume_n_digits (2);
+            int d0 = pos;
+            if (!consume_n_digits (2)) {
+                return false;
+            }
+            day = int.parse (input.substring (d0, 2));
+            return true;
         }
 
-        bool scan_partial_time () {
+        bool scan_partial_time (out int hour, out int minute, out int second) {
+            hour = 0;
+            minute = 0;
+            second = 0;
             // HH:MM[:SS[.frac]]  (seconds optional in TOML 1.1)
+            int h0 = pos;
             if (!consume_n_digits (2)) {
                 return false;
             }
+            hour = int.parse (input.substring (h0, 2));
             if (pos >= length || peek () != ':') {
                 return false;
             }
             advance ();
+            int m0 = pos;
             if (!consume_n_digits (2)) {
                 return false;
             }
+            minute = int.parse (input.substring (m0, 2));
             if (pos < length && peek () == ':') {
                 advance ();
+                int s0 = pos;
                 if (!consume_n_digits (2)) {
                     return false;
                 }
+                second = int.parse (input.substring (s0, 2));
                 if (pos < length && peek () == '.') {
                     advance ();
                     if (pos >= length || !peek ().isdigit ()) {
@@ -647,7 +794,9 @@ namespace Toml {
 
         // Returns true if a complete offset was scanned, false if none present.
         // If +/− is seen, a full ±HH:MM is required — incomplete offsets throw.
-        bool scan_time_offset (int start_line, int start_column) throws ParseError {
+        bool scan_time_offset (int start_line, int start_column, out int oh, out int om) throws ParseError {
+            oh = 0;
+            om = 0;
             // Z / z / (+|-)HH:MM
             if (pos >= length) {
                 return false;
@@ -662,22 +811,26 @@ namespace Toml {
             }
             int after_time = pos;
             advance ();
+            int h0 = pos;
             if (!consume_n_digits (2)) {
                 pos = after_time;
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "incomplete datetime offset"));
             }
+            oh = int.parse (input.substring (h0, 2));
             if (pos >= length || peek () != ':') {
                 pos = after_time;
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "incomplete datetime offset"));
             }
             advance ();
+            int m0 = pos;
             if (!consume_n_digits (2)) {
                 pos = after_time;
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "incomplete datetime offset"));
             }
+            om = int.parse (input.substring (m0, 2));
             return true;
         }
 
@@ -719,6 +872,10 @@ namespace Toml {
             if (!scan_digits_with_underscores (is_digit)) {
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "invalid integer"));
+            }
+            if (pos < length && peek () == '_') {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "trailing underscore in number"));
             }
             string text = input.substring (start, pos - start);
             return new Token (TokenKind.INTEGER, text, start_line, start_column);
@@ -771,11 +928,13 @@ namespace Toml {
         }
 
         static bool is_bare_key_start (unichar c) {
-            return c.isalpha () || c == '_' || c == '-';
+            // Bare keys are ASCII only: A-Za-z_
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == '-';
         }
 
         static bool is_bare_key_char (unichar c) {
-            return c.isalpha () || c.isdigit () || c == '_' || c == '-';
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+                || c.isdigit () || c == '_' || c == '-';
         }
 
         static bool is_hex_digit (unichar c) {

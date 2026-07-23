@@ -12,8 +12,9 @@ int main (string[] args) {
 string read_stdin () {
     var sb = new StringBuilder ();
     int c;
-    while ((c = stdin.getc ()) >= 0) {
+    while ((c = stdin.getc ()) != -1) {
         sb.append_c ((char) c);
     }
+    // JSON text from toml-test escapes NULs; .str is fine.
     return sb.str;
 }

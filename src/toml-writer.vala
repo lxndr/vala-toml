@@ -10,7 +10,7 @@ namespace Toml {
 
         public string emit (Table root) throws WriteError {
             buf = new StringBuilder ();
-            emit_table_body (root, new string[0]);
+            emit_table_body (root, new Gee.ArrayList<Bytes> ());
             return buf.str;
         }
 
@@ -24,44 +24,47 @@ namespace Toml {
             }
         }
 
-        void emit_table_body (Table table, string[] path) throws WriteError {
-            // Key/values first (scalars, arrays, inline tables, dotted leaves), then nested standard tables / AoT.
-            var nested = new Gee.ArrayList<string> ();
-
-            foreach (var key in table.keys) {
-                var value = table.get (key);
+        void emit_table_body (Table table, Gee.ArrayList<Bytes> path) throws WriteError {
+            var nested = new Gee.ArrayList<Bytes> ();
+            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                Bytes key_b = table.key_bytes_list[ki];
+                uint8[] key = key_b.get_data ();
+                var value = table.get_bytes (key);
                 var as_table = value as Table;
                 if (as_table != null && !as_table.style.inline) {
                     if (table.style.dotted_keys && is_dotted_eligible (as_table)) {
-                        emit_dotted_leaves (new string[] { key }, as_table);
+                        var prefix = new Gee.ArrayList<Bytes> ();
+                        prefix.add (key_b);
+                        emit_dotted_leaves (prefix, as_table);
                         continue;
                     }
-                    nested.add (key);
+                    nested.add (key_b);
                     continue;
                 }
                 var as_array = value as Array;
                 if (as_array != null && is_array_of_tables (as_array) && !as_array.style.inline) {
-                    nested.add (key);
+                    nested.add (key_b);
                     continue;
                 }
-                emit_key (key);
+                emit_key_bytes (key);
                 buf.append (" = ");
                 emit_value (value, 0);
                 buf.append_c ('\n');
             }
 
-            foreach (var key in nested) {
-                var value = table.get (key);
+            foreach (var key_b in nested) {
+                uint8[] key = key_b.get_data ();
+                var value = table.get_bytes (key);
                 var as_table = value as Table;
                 if (as_table != null) {
-                    var child_path = append_path (path, key);
+                    var child_path = append_path (path, key_b);
                     emit_table_header (child_path);
                     emit_table_body (as_table, child_path);
                     continue;
                 }
                 var as_array = value as Array;
                 if (as_array != null) {
-                    emit_array_of_tables (as_array, append_path (path, key));
+                    emit_array_of_tables (as_array, append_path (path, key_b));
                 }
             }
         }
@@ -70,8 +73,10 @@ namespace Toml {
             if (table.size == 0) {
                 return false;
             }
-            foreach (var key in table.keys) {
-                var value = table.get (key);
+            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                Bytes key_b = table.key_bytes_list[ki];
+                uint8[] key = key_b.get_data ();
+                var value = table.get_bytes (key);
                 var child = value as Table;
                 if (child != null && !child.style.inline) {
                     if (!is_dotted_eligible (child)) {
@@ -87,22 +92,24 @@ namespace Toml {
             return true;
         }
 
-        void emit_dotted_leaves (string[] prefix, Table table) throws WriteError {
-            foreach (var key in table.keys) {
-                var value = table.get (key);
+        void emit_dotted_leaves (Gee.ArrayList<Bytes> prefix, Table table) throws WriteError {
+            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                Bytes key_b = table.key_bytes_list[ki];
+                uint8[] key = key_b.get_data ();
+                var value = table.get_bytes (key);
                 var child = value as Table;
                 if (child != null && !child.style.inline) {
-                    emit_dotted_leaves (append_path (prefix, key), child);
+                    emit_dotted_leaves (append_path (prefix, key_b), child);
                     continue;
                 }
-                emit_key_path (append_path (prefix, key));
+                emit_key_path (append_path (prefix, key_b));
                 buf.append (" = ");
                 emit_value (value, 0);
                 buf.append_c ('\n');
             }
         }
 
-        void emit_array_of_tables (Array array, string[] path) throws WriteError {
+        void emit_array_of_tables (Array array, Gee.ArrayList<Bytes> path) throws WriteError {
             for (int i = 0; i < array.size; i++) {
                 var elem = array.get (i) as Table;
                 if (elem == null) {
@@ -125,50 +132,54 @@ namespace Toml {
             return true;
         }
 
-        void emit_table_header (string[] path) {
+        void emit_table_header (Gee.ArrayList<Bytes> path) {
             buf.append_c ('[');
             emit_key_path (path);
             buf.append ("]\n");
         }
 
-        void emit_aot_header (string[] path) {
+        void emit_aot_header (Gee.ArrayList<Bytes> path) {
             buf.append ("[[");
             emit_key_path (path);
             buf.append ("]]\n");
         }
 
-        void emit_key_path (string[] path) {
-            for (int i = 0; i < path.length; i++) {
+        void emit_key_path (Gee.ArrayList<Bytes> path) {
+            for (int i = 0; i < path.size; i++) {
                 if (i > 0) {
                     buf.append_c ('.');
                 }
-                emit_key (path[i]);
+                emit_key_bytes (path[i].get_data ());
             }
         }
 
-        string[] append_path (string[] path, string key) {
-            var next = new string[path.length + 1];
-            for (int i = 0; i < path.length; i++) {
-                next[i] = path[i];
+        Gee.ArrayList<Bytes> append_path (Gee.ArrayList<Bytes> path, Bytes key) {
+            var next = new Gee.ArrayList<Bytes> ();
+            foreach (var p in path) {
+                next.add (p);
             }
-            next[path.length] = key;
+            next.add (key);
             return next;
         }
 
         void emit_key (string key) {
-            if (is_bare_key (key)) {
-                buf.append (key);
+            emit_key_bytes (key.data);
+        }
+
+        void emit_key_bytes (uint8[] key) {
+            if (is_bare_key_bytes (key)) {
+                buf.append_len ((string) key, key.length);
             } else {
-                emit_basic_string (key);
+                emit_basic_string_bytes (key);
             }
         }
 
-        bool is_bare_key (string key) {
+        bool is_bare_key_bytes (uint8[] key) {
             if (key.length == 0) {
                 return false;
             }
             for (int i = 0; i < key.length; i++) {
-                unichar c = key.get_char (i);
+                uint8 c = key[i];
                 if (!((c >= 'A' && c <= 'Z') ||
                       (c >= 'a' && c <= 'z') ||
                       (c >= '0' && c <= '9') ||
@@ -182,7 +193,7 @@ namespace Toml {
         void emit_value (Value value, int base_indent) throws WriteError {
             switch (value.kind) {
             case ValueKind.STRING:
-                emit_basic_string (value.get_string ());
+                emit_basic_string_bytes (value.get_string_bytes ());
                 break;
             case ValueKind.INTEGER:
                 buf.append (value.get_integer ().to_string ());
@@ -211,8 +222,10 @@ namespace Toml {
         }
 
         void validate_inline_table (Table table) throws WriteError {
-            foreach (var key in table.keys) {
-                var value = table.get (key);
+            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                Bytes key_b = table.key_bytes_list[ki];
+                uint8[] key = key_b.get_data ();
+                var value = table.get_bytes (key);
                 var arr = value as Array;
                 if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
                     throw new WriteError.FAILED ("inline table cannot contain array-of-tables");
@@ -230,14 +243,15 @@ namespace Toml {
             if (!table.style.multiline) {
                 buf.append ("{ ");
                 bool first = true;
-                foreach (var key in table.keys) {
+                for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                    uint8[] key = table.key_bytes_list[ki].get_data ();
                     if (!first) {
                         buf.append (", ");
                     }
                     first = false;
-                    emit_key (key);
+                    emit_key_bytes (key);
                     buf.append (" = ");
-                    emit_value (table.get (key), base_indent);
+                    emit_value (table.get_bytes (key), base_indent);
                 }
                 buf.append (" }");
                 return;
@@ -246,15 +260,16 @@ namespace Toml {
             int ind = resolve_indent (table.style.indent);
             buf.append ("{\n");
             bool first_ml = true;
-            foreach (var key in table.keys) {
+            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                uint8[] key = table.key_bytes_list[ki].get_data ();
                 if (!first_ml) {
                     buf.append (",\n");
                 }
                 first_ml = false;
                 append_spaces (base_indent + ind);
-                emit_key (key);
+                emit_key_bytes (key);
                 buf.append (" = ");
-                emit_value (table.get (key), base_indent + ind);
+                emit_value (table.get_bytes (key), base_indent + ind);
             }
             buf.append_c ('\n');
             append_spaces (base_indent);
@@ -322,51 +337,99 @@ namespace Toml {
                 buf.append ("-inf");
                 return;
             }
-            // Ensure a decimal point for TOML floats (integers need ".0").
-            string s = "%.15g".printf (v);
+            double abs = (v < 0.0) ? -v : v;
+            if (abs <= 9007199254740991.0 && v == (double) ((int64) v)) {
+                buf.append ("%.0f".printf (v));
+                buf.append (".0");
+                return;
+            }
+            // Round-trip precision for IEEE754 binary64
+            string s = "%.17g".printf (v);
             if (s.index_of_char ('.') < 0 && s.index_of_char ('e') < 0 && s.index_of_char ('E') < 0) {
                 s += ".0";
             }
             buf.append (s);
         }
 
-        void emit_basic_string (string s) {
+        void emit_basic_string_bytes (uint8[]? bytes) {
             buf.append_c ('"');
-            int i = 0;
-            unichar c;
-            while (s.get_next_char (ref i, out c)) {
-                switch (c) {
-                case '"':
-                    buf.append ("\\\"");
-                    break;
-                case '\\':
-                    buf.append ("\\\\");
-                    break;
-                case '\b':
-                    buf.append ("\\b");
-                    break;
-                case '\f':
-                    buf.append ("\\f");
-                    break;
-                case '\n':
-                    buf.append ("\\n");
-                    break;
-                case '\r':
-                    buf.append ("\\r");
-                    break;
-                case '\t':
-                    buf.append ("\\t");
-                    break;
-                default:
-                    if (c < 0x20 || c == 0x7f) {
-                        buf.append_printf ("\\u%04x", c);
-                    } else {
-                        buf.append_unichar (c);
+            if (bytes != null) {
+                int i = 0;
+                while (i < bytes.length) {
+                    unichar c;
+                    int n = utf8_next (bytes, i, out c);
+                    if (n <= 0) {
+                        buf.append_printf ("\\u%04x", bytes[i]);
+                        i++;
+                        continue;
                     }
-                    break;
+                    i += n;
+                    switch (c) {
+                    case '"':
+                        buf.append ("\\\"");
+                        break;
+                    case '\\':
+                        buf.append ("\\\\");
+                        break;
+                    case '\b':
+                        buf.append ("\\b");
+                        break;
+                    case '\f':
+                        buf.append ("\\f");
+                        break;
+                    case '\n':
+                        buf.append ("\\n");
+                        break;
+                    case '\r':
+                        buf.append ("\\r");
+                        break;
+                    case '\t':
+                        buf.append ("\\t");
+                        break;
+                    case 0:
+                        buf.append ("\\u0000");
+                        break;
+                    default:
+                        if (c < 0x20 || c == 0x7f) {
+                            buf.append_printf ("\\u%04x", c);
+                        } else {
+                            buf.append_unichar (c);
+                        }
+                        break;
+                    }
                 }
             }
             buf.append_c ('"');
+        }
+
+        static int utf8_next (uint8[] bytes, int i, out unichar c) {
+            c = 0;
+            if (i >= bytes.length) {
+                return 0;
+            }
+            uint8 b0 = bytes[i];
+            if (b0 < 0x80) {
+                c = b0;
+                return 1;
+            }
+            if ((b0 & 0xE0) == 0xC0 && i + 1 < bytes.length) {
+                c = ((unichar) (b0 & 0x1F) << 6) | (bytes[i + 1] & 0x3F);
+                return 2;
+            }
+            if ((b0 & 0xF0) == 0xE0 && i + 2 < bytes.length) {
+                c = ((unichar) (b0 & 0x0F) << 12)
+                    | ((unichar) (bytes[i + 1] & 0x3F) << 6)
+                    | (bytes[i + 2] & 0x3F);
+                return 3;
+            }
+            if ((b0 & 0xF8) == 0xF0 && i + 3 < bytes.length) {
+                c = ((unichar) (b0 & 0x07) << 18)
+                    | ((unichar) (bytes[i + 1] & 0x3F) << 12)
+                    | ((unichar) (bytes[i + 2] & 0x3F) << 6)
+                    | (bytes[i + 3] & 0x3F);
+                return 4;
+            }
+            return -1;
         }
     }
 }
