@@ -8,6 +8,7 @@ vala_toml_sources = files(
   'toml-equal.vala',
   'toml-token.vala',
   'toml-lexer.vala',
+  'toml-parser.vala',
 )
 
 vala_toml_lib = library(

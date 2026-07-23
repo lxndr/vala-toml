@@ -24,3 +24,12 @@ test_lexer = executable(
 )
 
 test('lexer', test_lexer)
+
+test_parser = executable(
+  'test-parser',
+  'test-parser.vala',
+  dependencies: vala_toml_dep,
+  vala_args: ['--pkg', 'gee-0.8'],
+)
+
+test('parser', test_parser)
