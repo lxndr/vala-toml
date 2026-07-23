@@ -1,7 +1,3 @@
-void test_library_name () {
-    assert (Toml.library_name () == "vala-toml");
-}
-
 void test_parse_error_message () {
     try {
         throw new Toml.ParseError.FAILED ("1:5: unexpected token");
@@ -61,7 +57,6 @@ void test_nested_table () {
 
 public static int main (string[] args) {
     Test.init (ref args);
-    Test.add_func ("/toml/library_name", test_library_name);
     Test.add_func ("/toml/parse_error_message", test_parse_error_message);
     Test.add_func ("/toml/style_defaults", test_style_defaults);
     Test.add_func ("/toml/table_insertion_order_and_get", test_table_insertion_order_and_get);

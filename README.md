@@ -1,15 +1,15 @@
 # vala-toml
 
-Vala library for TOML 1.1 manipulation: parse into a DOM, mutate values and structure, and emit valid TOML.
+Vala library for TOML 1.1: parse into a DOM, mutate values and structure, and emit valid TOML.
 
 ## Dependencies
 
-- Vala
-- Meson (>= 1.0.0)
-- GLib 2.0, GObject, GIO
-- libgee-0.8
-- json-glib-1.0
-- Go (optional, for installing `toml-test`)
+- `vala`
+- `meson` (>= 1.0.0)
+- `glib` (GLib / GObject / GIO)
+- `gee-0.8`
+- `json-glib`
+- `go` (optional, for installing `toml-test`)
 
 ## Build
 
@@ -28,31 +28,28 @@ meson test -C build --print-errorlogs
 
 Pinned runner: **toml-test v2.2.0** (`github.com/toml-lang/toml-test/v2/cmd/toml-test@v2.2.0`).
 
-Install the pinned binary into `build/tools`:
+Install the pinned binary into `build/tools`, build tools, then run the suite:
 
 ```bash
 mkdir -p build/tools
 GOBIN="$PWD/build/tools" go install github.com/toml-lang/toml-test/v2/cmd/toml-test@v2.2.0
 meson compile -C build
-```
-
-Run the full decoder + encoder suite for TOML 1.1:
-
-```bash
 ./build/tools/toml-test test -toml=1.1 \
   -decoder="$PWD/build/tools/vala-toml-decoder" \
   -encoder="$PWD/build/tools/vala-toml-encoder"
 ```
 
-Or use the helper (installs the pinned `toml-test` if missing, then runs the suite):
+Or use the helper (installs the pinned `toml-test` if missing, then runs decoder + encoder for TOML 1.1):
 
 ```bash
 ./scripts/run-toml-test.sh
 ```
 
-Smoke-check the CLIs:
+## Minimal API
 
-```bash
-echo 'a = 1' | ./build/tools/vala-toml-decoder
-echo '{"a":{"type":"integer","value":"1"}}' | ./build/tools/vala-toml-encoder
+```vala
+var table = Toml.parse_string ("a = 1\n");
+table.get ("a"); // Value
+table.style.inline = false;
+stdout.printf ("%s", Toml.write_string (table));
 ```

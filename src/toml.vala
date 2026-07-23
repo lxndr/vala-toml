@@ -1,8 +1,4 @@
 namespace Toml {
-    public string library_name () {
-        return "vala-toml";
-    }
-
     public Table parse_string (string text) throws ParseError {
         validate_source_bytes (text.data);
         var parser = new Parser (text);
