@@ -191,6 +191,61 @@ void test_lexer_rejects_unterminated_string () {
     }
 }
 
+void test_lexer_offset_datetime () {
+    try {
+        var lex = new Toml.Lexer ("1979-05-27T07:32:00Z");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.DATETIME);
+        assert (t.text == "1979-05-27T07:32:00Z");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_local_datetime () {
+    try {
+        var lex = new Toml.Lexer ("1979-05-27T07:32:00");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.DATETIME_LOCAL);
+        assert (t.text == "1979-05-27T07:32:00");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_local_date () {
+    try {
+        var lex = new Toml.Lexer ("1979-05-27");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.DATE_LOCAL);
+        assert (t.text == "1979-05-27");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_local_time () {
+    try {
+        var lex = new Toml.Lexer ("07:32:00");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.TIME_LOCAL);
+        assert (t.text == "07:32:00");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_integer_not_date () {
+    try {
+        var lex = new Toml.Lexer ("1979");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.INTEGER);
+        assert (t.text == "1979");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/lexer/key_equals_number", test_lexer_key_equals_number);
@@ -208,5 +263,10 @@ public static int main (string[] args) {
     Test.add_func ("/toml/lexer/multiline_quotes_inside", test_lexer_multiline_quotes_inside);
     Test.add_func ("/toml/lexer/rejects_bad_escape", test_lexer_rejects_bad_escape);
     Test.add_func ("/toml/lexer/rejects_unterminated_string", test_lexer_rejects_unterminated_string);
+    Test.add_func ("/toml/lexer/offset_datetime", test_lexer_offset_datetime);
+    Test.add_func ("/toml/lexer/local_datetime", test_lexer_local_datetime);
+    Test.add_func ("/toml/lexer/local_date", test_lexer_local_date);
+    Test.add_func ("/toml/lexer/local_time", test_lexer_local_time);
+    Test.add_func ("/toml/lexer/integer_not_date", test_lexer_integer_not_date);
     return Test.run ();
 }

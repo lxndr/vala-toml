@@ -487,10 +487,17 @@ namespace Toml {
                     format_parse_error (start_line, start_column, "invalid number"));
             }
 
-            // Datetime-shaped tokens deferred to a later task
+            // Prefer TOML 1.1 datetime productions over integers when the shape matches
+            if (!signed) {
+                Token? dt = try_scan_datetime (start, start_line, start_column);
+                if (dt != null) {
+                    return dt;
+                }
+            }
+
             if (pos < length && (peek () == '-' || peek () == ':')) {
                 throw new ParseError.FAILED (
-                    format_parse_error (start_line, start_column, "datetimes are not supported yet"));
+                    format_parse_error (start_line, start_column, "invalid number"));
             }
 
             bool is_float = false;
@@ -519,6 +526,157 @@ namespace Toml {
                 return new Token (TokenKind.FLOAT, text, start_line, start_column);
             }
             return new Token (TokenKind.INTEGER, text, start_line, start_column);
+        }
+
+        // Try TOML 1.1 date/time from `start` (current pos is after the leading digit run).
+        // Returns null if the digit run is not a datetime shape (caller continues as number).
+        Token? try_scan_datetime (int start, int start_line, int start_column) {
+            string leading = input.substring (start, pos - start);
+            if (leading.contains ("_")) {
+                return null;
+            }
+
+            int saved = pos;
+
+            // Local time: HH:MM[:SS[.frac]]
+            if (pos < length && peek () == ':') {
+                if (leading.length != 2) {
+                    return null;
+                }
+                pos = start;
+                if (!scan_partial_time ()) {
+                    pos = saved;
+                    return null;
+                }
+                string text = input.substring (start, pos - start);
+                return new Token (TokenKind.TIME_LOCAL, text, start_line, start_column);
+            }
+
+            // Date: YYYY-MM-DD [time [offset]]
+            if (pos < length && peek () == '-') {
+                if (leading.length != 4) {
+                    return null;
+                }
+                pos = start;
+                if (!scan_full_date ()) {
+                    pos = saved;
+                    return null;
+                }
+
+                // Optional date/time separator + partial-time
+                if (pos < length && is_date_time_separator (peek ())) {
+                    int after_date = pos;
+                    unichar sep = peek ();
+                    advance ();
+                    if (scan_partial_time ()) {
+                        if (scan_time_offset ()) {
+                            string text = input.substring (start, pos - start);
+                            return new Token (TokenKind.DATETIME, text, start_line, start_column);
+                        }
+                        string text = input.substring (start, pos - start);
+                        return new Token (TokenKind.DATETIME_LOCAL, text, start_line, start_column);
+                    }
+                    // Separator was not followed by a valid time (e.g. space before comment)
+                    pos = after_date;
+                    // Space is ordinary whitespace; T/t would be an invalid continuation
+                    if (sep == 'T' || sep == 't') {
+                        pos = saved;
+                        return null;
+                    }
+                }
+
+                string text = input.substring (start, pos - start);
+                return new Token (TokenKind.DATE_LOCAL, text, start_line, start_column);
+            }
+
+            return null;
+        }
+
+        static bool is_date_time_separator (unichar c) {
+            return c == 'T' || c == 't' || c == ' ';
+        }
+
+        bool scan_full_date () {
+            // YYYY-MM-DD
+            if (!consume_n_digits (4)) {
+                return false;
+            }
+            if (pos >= length || peek () != '-') {
+                return false;
+            }
+            advance ();
+            if (!consume_n_digits (2)) {
+                return false;
+            }
+            if (pos >= length || peek () != '-') {
+                return false;
+            }
+            advance ();
+            return consume_n_digits (2);
+        }
+
+        bool scan_partial_time () {
+            // HH:MM[:SS[.frac]]  (seconds optional in TOML 1.1)
+            if (!consume_n_digits (2)) {
+                return false;
+            }
+            if (pos >= length || peek () != ':') {
+                return false;
+            }
+            advance ();
+            if (!consume_n_digits (2)) {
+                return false;
+            }
+            if (pos < length && peek () == ':') {
+                advance ();
+                if (!consume_n_digits (2)) {
+                    return false;
+                }
+                if (pos < length && peek () == '.') {
+                    advance ();
+                    if (pos >= length || !peek ().isdigit ()) {
+                        return false;
+                    }
+                    while (pos < length && peek ().isdigit ()) {
+                        advance ();
+                    }
+                }
+            }
+            return true;
+        }
+
+        bool scan_time_offset () {
+            // Z / z / (+|-)HH:MM
+            if (pos >= length) {
+                return false;
+            }
+            unichar c = peek ();
+            if (c == 'Z' || c == 'z') {
+                advance ();
+                return true;
+            }
+            if (c != '+' && c != '-') {
+                return false;
+            }
+            advance ();
+            if (!consume_n_digits (2)) {
+                return false;
+            }
+            if (pos >= length || peek () != ':') {
+                return false;
+            }
+            advance ();
+            return consume_n_digits (2);
+        }
+
+        bool consume_n_digits (int n) {
+            for (int i = 0; i < n; i++) {
+                if (pos >= length || !peek ().isdigit ()) {
+                    return false;
+                }
+                advance ();
+            }
+            return true;
         }
 
         bool has_valid_exponent () {
