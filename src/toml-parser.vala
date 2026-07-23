@@ -101,8 +101,74 @@ namespace Toml {
         void parse_key_value (Table target) throws ParseError {
             var path = parse_key_path ();
             expect (TokenKind.EQUALS, "expected '='");
-            Value value = parse_scalar ();
+            Value value = parse_value ();
             insert_path (target, path, value);
+        }
+
+        Value parse_value () throws ParseError {
+            if (current.kind == TokenKind.LBRACKET) {
+                return parse_array ();
+            }
+            if (current.kind == TokenKind.LBRACE) {
+                return parse_inline_table ();
+            }
+            return parse_scalar ();
+        }
+
+        Array parse_array () throws ParseError {
+            expect (TokenKind.LBRACKET, "expected '['");
+            var array = new Array ();
+            skip_newlines ();
+            if (current.kind == TokenKind.RBRACKET) {
+                advance ();
+                return array;
+            }
+            while (true) {
+                skip_newlines ();
+                array.add (parse_value ());
+                skip_newlines ();
+                if (current.kind != TokenKind.COMMA) {
+                    break;
+                }
+                advance ();
+                skip_newlines ();
+                if (current.kind == TokenKind.RBRACKET) {
+                    break;
+                }
+            }
+            expect (TokenKind.RBRACKET, "expected ']'");
+            return array;
+        }
+
+        Table parse_inline_table () throws ParseError {
+            expect (TokenKind.LBRACE, "expected '{'");
+            var table = new Table ();
+            skip_newlines ();
+            if (current.kind == TokenKind.RBRACE) {
+                advance ();
+                return table;
+            }
+            while (true) {
+                skip_newlines ();
+                parse_key_value (table);
+                skip_newlines ();
+                if (current.kind != TokenKind.COMMA) {
+                    break;
+                }
+                advance ();
+                skip_newlines ();
+                if (current.kind == TokenKind.RBRACE) {
+                    break;
+                }
+            }
+            expect (TokenKind.RBRACE, "expected '}'");
+            return table;
+        }
+
+        void skip_newlines () throws ParseError {
+            while (current.kind == TokenKind.NEWLINE) {
+                advance ();
+            }
         }
 
         Gee.ArrayList<string> parse_key_path () throws ParseError {

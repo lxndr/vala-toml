@@ -128,6 +128,28 @@ void test_parse_signed_integer_key_fails () {
     }
 }
 
+void test_parse_array () {
+    try {
+        var t = Toml.parse_string ("nums = [1, 2, 3]\n");
+        var a = t.get ("nums").as_array ();
+        assert (a.size == 3);
+        assert (!a.style.multiline);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_parse_inline_table_neutral_style () {
+    try {
+        var t = Toml.parse_string ("point = { x = 1, y = 2 }\n");
+        var p = t.get ("point").as_table ();
+        assert (p.get ("x").get_integer () == 1);
+        assert (!p.style.inline);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/parser/simple_pair", test_parse_simple_pair);
@@ -143,5 +165,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/numeric_bare_key", test_parse_numeric_bare_key);
     Test.add_func ("/toml/parser/date_shaped_bare_key", test_parse_date_shaped_bare_key);
     Test.add_func ("/toml/parser/signed_integer_key_fails", test_parse_signed_integer_key_fails);
+    Test.add_func ("/toml/parser/array", test_parse_array);
+    Test.add_func ("/toml/parser/inline_table_neutral_style", test_parse_inline_table_neutral_style);
     return Test.run ();
 }
