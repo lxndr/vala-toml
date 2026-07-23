@@ -81,16 +81,6 @@ void test_lexer_hex_and_bool_false () {
     }
 }
 
-void test_lexer_rejects_quoted_string () {
-    var lex = new Toml.Lexer ("\"hi\"");
-    try {
-        lex.next ();
-        assert_not_reached ();
-    } catch (Toml.ParseError e) {
-        assert (e.message.contains (":"));
-    }
-}
-
 void test_lexer_line_column () {
     try {
         var lex = new Toml.Lexer ("  a = 1");
@@ -104,6 +94,103 @@ void test_lexer_line_column () {
     }
 }
 
+void test_lexer_basic_string_escape () {
+    try {
+        var lex = new Toml.Lexer ("\"a\\nb\"");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "a\nb");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_literal_string () {
+    try {
+        var lex = new Toml.Lexer ("'C:\\Users'");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "C:\\Users");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_multiline_basic () {
+    try {
+        var lex = new Toml.Lexer ("\"\"\"\nhello\nworld\"\"\"");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "hello\nworld");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_unicode_escapes () {
+    try {
+        var lex = new Toml.Lexer ("\"\\xE9\\u00E9\\U0001F600\"");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "éé😀");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_multiline_line_ending_backslash () {
+    try {
+        var lex = new Toml.Lexer ("\"\"\"\nThe quick brown \\\n\n  fox\"\"\"");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "The quick brown fox");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_multiline_literal () {
+    try {
+        var lex = new Toml.Lexer ("'''\nI [dw]on't need \\d{2} apples'''");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "I [dw]on't need \\d{2} apples");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_multiline_quotes_inside () {
+    try {
+        var lex = new Toml.Lexer ("\"\"\"Here are two quotation marks: \"\". Simple enough.\"\"\"");
+        var t = lex.next ();
+        assert (t.kind == Toml.TokenKind.STRING);
+        assert (t.text == "Here are two quotation marks: \"\". Simple enough.");
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+void test_lexer_rejects_bad_escape () {
+    var lex = new Toml.Lexer ("\"\\q\"");
+    try {
+        lex.next ();
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message.contains (":"));
+    }
+}
+
+void test_lexer_rejects_unterminated_string () {
+    var lex = new Toml.Lexer ("\"hi");
+    try {
+        lex.next ();
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message.contains (":"));
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/lexer/key_equals_number", test_lexer_key_equals_number);
@@ -111,7 +198,15 @@ public static int main (string[] args) {
     Test.add_func ("/toml/lexer/brackets", test_lexer_brackets);
     Test.add_func ("/toml/lexer/punctuation_and_float", test_lexer_punctuation_and_float);
     Test.add_func ("/toml/lexer/hex_and_bool_false", test_lexer_hex_and_bool_false);
-    Test.add_func ("/toml/lexer/rejects_quoted_string", test_lexer_rejects_quoted_string);
     Test.add_func ("/toml/lexer/line_column", test_lexer_line_column);
+    Test.add_func ("/toml/lexer/basic_string_escape", test_lexer_basic_string_escape);
+    Test.add_func ("/toml/lexer/literal_string", test_lexer_literal_string);
+    Test.add_func ("/toml/lexer/multiline_basic", test_lexer_multiline_basic);
+    Test.add_func ("/toml/lexer/unicode_escapes", test_lexer_unicode_escapes);
+    Test.add_func ("/toml/lexer/multiline_line_ending_backslash", test_lexer_multiline_line_ending_backslash);
+    Test.add_func ("/toml/lexer/multiline_literal", test_lexer_multiline_literal);
+    Test.add_func ("/toml/lexer/multiline_quotes_inside", test_lexer_multiline_quotes_inside);
+    Test.add_func ("/toml/lexer/rejects_bad_escape", test_lexer_rejects_bad_escape);
+    Test.add_func ("/toml/lexer/rejects_unterminated_string", test_lexer_rejects_unterminated_string);
     return Test.run ();
 }

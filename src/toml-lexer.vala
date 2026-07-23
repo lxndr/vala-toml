@@ -75,8 +75,7 @@ namespace Toml {
             }
 
             if (c == '"' || c == '\'') {
-                throw new ParseError.FAILED (
-                    format_parse_error (start_line, start_column, "quoted strings are not supported yet"));
+                return scan_string (start_line, start_column);
             }
 
             if (c == '+' || c == '-' || c.isdigit ()) {
@@ -106,6 +105,324 @@ namespace Toml {
                 }
                 break;
             }
+        }
+
+        Token scan_string (int start_line, int start_column) throws ParseError {
+            unichar quote = peek ();
+            bool triple = (pos + 2 < length
+                && input.get_char (pos + 1) == quote
+                && input.get_char (pos + 2) == quote);
+
+            if (triple) {
+                advance ();
+                advance ();
+                advance ();
+                // Trim newline immediately after opening delimiter
+                if (pos < length && (peek () == '\n' || peek () == '\r')) {
+                    consume_newline ();
+                }
+                if (quote == '"') {
+                    return scan_multiline_basic_string (start_line, start_column);
+                }
+                return scan_multiline_literal_string (start_line, start_column);
+            }
+
+            advance (); // opening quote
+            if (quote == '"') {
+                return scan_basic_string (start_line, start_column);
+            }
+            return scan_literal_string (start_line, start_column);
+        }
+
+        Token scan_basic_string (int start_line, int start_column) throws ParseError {
+            var buf = new StringBuilder ();
+            while (pos < length) {
+                unichar c = peek ();
+                if (c == '"') {
+                    advance ();
+                    return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                }
+                if (c == '\n' || c == '\r') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "newline in basic string"));
+                }
+                if (c == '\\') {
+                    advance ();
+                    buf.append_unichar (scan_escape (start_line, start_column));
+                    continue;
+                }
+                if (is_disallowed_control (c, false)) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "invalid control character in string"));
+                }
+                advance ();
+                buf.append_unichar (c);
+            }
+            throw new ParseError.FAILED (
+                format_parse_error (start_line, start_column, "unterminated string"));
+        }
+
+        Token scan_literal_string (int start_line, int start_column) throws ParseError {
+            var buf = new StringBuilder ();
+            while (pos < length) {
+                unichar c = peek ();
+                if (c == '\'') {
+                    advance ();
+                    return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                }
+                if (c == '\n' || c == '\r') {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "newline in literal string"));
+                }
+                if (is_disallowed_control (c, false)) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "invalid control character in string"));
+                }
+                advance ();
+                buf.append_unichar (c);
+            }
+            throw new ParseError.FAILED (
+                format_parse_error (start_line, start_column, "unterminated string"));
+        }
+
+        Token scan_multiline_basic_string (int start_line, int start_column) throws ParseError {
+            var buf = new StringBuilder ();
+            while (pos < length) {
+                unichar c = peek ();
+                if (c == '"') {
+                    int count = count_quotes ('"');
+                    if (count >= 3) {
+                        // 3–5 consecutive quotes: (count-3) content quotes + closing """
+                        if (count > 5) {
+                            throw new ParseError.FAILED (
+                                format_parse_error (line, column, "too many quotes in multiline string"));
+                        }
+                        for (int i = 0; i < count - 3; i++) {
+                            buf.append_c ('"');
+                        }
+                        for (int i = 0; i < count; i++) {
+                            advance ();
+                        }
+                        return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                    }
+                    // 1 or 2 quotes as content
+                    for (int i = 0; i < count; i++) {
+                        advance ();
+                        buf.append_c ('"');
+                    }
+                    continue;
+                }
+                if (c == '\\') {
+                    advance ();
+                    // Line-ending backslash: \ ws* newline (ws|newline)*
+                    if (is_line_ending_backslash ()) {
+                        skip_escaped_newline ();
+                        continue;
+                    }
+                    buf.append_unichar (scan_escape (start_line, start_column));
+                    continue;
+                }
+                if (c == '\n' || c == '\r') {
+                    consume_newline ();
+                    buf.append_c ('\n');
+                    continue;
+                }
+                if (is_disallowed_control (c, true)) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "invalid control character in string"));
+                }
+                advance ();
+                buf.append_unichar (c);
+            }
+            throw new ParseError.FAILED (
+                format_parse_error (start_line, start_column, "unterminated string"));
+        }
+
+        Token scan_multiline_literal_string (int start_line, int start_column) throws ParseError {
+            var buf = new StringBuilder ();
+            while (pos < length) {
+                unichar c = peek ();
+                if (c == '\'') {
+                    int count = count_quotes ('\'');
+                    if (count >= 3) {
+                        if (count > 5) {
+                            throw new ParseError.FAILED (
+                                format_parse_error (line, column, "too many quotes in multiline string"));
+                        }
+                        for (int i = 0; i < count - 3; i++) {
+                            buf.append_c ('\'');
+                        }
+                        for (int i = 0; i < count; i++) {
+                            advance ();
+                        }
+                        return new Token (TokenKind.STRING, buf.str, start_line, start_column);
+                    }
+                    for (int i = 0; i < count; i++) {
+                        advance ();
+                        buf.append_c ('\'');
+                    }
+                    continue;
+                }
+                if (c == '\n' || c == '\r') {
+                    consume_newline ();
+                    buf.append_c ('\n');
+                    continue;
+                }
+                if (is_disallowed_control (c, true)) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (line, column, "invalid control character in string"));
+                }
+                advance ();
+                buf.append_unichar (c);
+            }
+            throw new ParseError.FAILED (
+                format_parse_error (start_line, start_column, "unterminated string"));
+        }
+
+        int count_quotes (unichar quote) {
+            int count = 0;
+            int i = pos;
+            while (i < length && input.get_char (i) == quote) {
+                count++;
+                i += (int) quote.to_utf8 (null);
+            }
+            return count;
+        }
+
+        bool is_line_ending_backslash () {
+            // After consuming '\', check if remaining is ws* newline
+            int i = pos;
+            while (i < length) {
+                unichar c = input.get_char (i);
+                if (c == ' ' || c == '\t') {
+                    i += (int) c.to_utf8 (null);
+                    continue;
+                }
+                return c == '\n' || c == '\r';
+            }
+            return false;
+        }
+
+        void skip_escaped_newline () throws ParseError {
+            // Skip ws before newline
+            while (pos < length && (peek () == ' ' || peek () == '\t')) {
+                advance ();
+            }
+            if (pos >= length || (peek () != '\n' && peek () != '\r')) {
+                throw new ParseError.FAILED (
+                    format_parse_error (line, column, "invalid line-ending backslash"));
+            }
+            consume_newline ();
+            // Skip ws and further newlines
+            while (pos < length) {
+                unichar c = peek ();
+                if (c == ' ' || c == '\t') {
+                    advance ();
+                    continue;
+                }
+                if (c == '\n' || c == '\r') {
+                    consume_newline ();
+                    continue;
+                }
+                break;
+            }
+        }
+
+        void consume_newline () {
+            if (pos >= length) {
+                return;
+            }
+            if (peek () == '\r') {
+                advance ();
+                if (pos < length && peek () == '\n') {
+                    advance ();
+                }
+            } else if (peek () == '\n') {
+                advance ();
+            }
+        }
+
+        unichar scan_escape (int start_line, int start_column) throws ParseError {
+            if (pos >= length) {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "unterminated escape"));
+            }
+            unichar c = peek ();
+            advance ();
+            switch (c) {
+            case 'b':
+                return '\b';
+            case 't':
+                return '\t';
+            case 'n':
+                return '\n';
+            case 'f':
+                return '\f';
+            case 'r':
+                return '\r';
+            case 'e':
+                return 0x1B;
+            case '"':
+                return '"';
+            case '\\':
+                return '\\';
+            case 'x':
+                return scan_unicode_escape (2, start_line, start_column);
+            case 'u':
+                return scan_unicode_escape (4, start_line, start_column);
+            case 'U':
+                return scan_unicode_escape (8, start_line, start_column);
+            default:
+                throw new ParseError.FAILED (
+                    format_parse_error (line, column, "invalid escape sequence"));
+            }
+        }
+
+        unichar scan_unicode_escape (int digits, int start_line, int start_column) throws ParseError {
+            uint32 code = 0;
+            for (int i = 0; i < digits; i++) {
+                if (pos >= length || !is_hex_digit (peek ())) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (start_line, start_column, "invalid unicode escape"));
+                }
+                unichar h = peek ();
+                advance ();
+                code <<= 4;
+                if (h.isdigit ()) {
+                    code |= (uint32) (h - '0');
+                } else if (h >= 'a' && h <= 'f') {
+                    code |= (uint32) (h - 'a' + 10);
+                } else {
+                    code |= (uint32) (h - 'A' + 10);
+                }
+            }
+            // Must be a Unicode scalar value (not surrogate)
+            if (code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
+                throw new ParseError.FAILED (
+                    format_parse_error (start_line, start_column, "invalid unicode scalar value"));
+            }
+            return (unichar) code;
+        }
+
+        static bool is_disallowed_control (unichar c, bool multiline) {
+            // Tab always allowed. Multiline also allows LF/CR (handled separately as newlines).
+            if (c == '\t') {
+                return false;
+            }
+            if (multiline && (c == '\n' || c == '\r')) {
+                return false;
+            }
+            // U+0000..U+0008, U+000A..U+001F, U+007F
+            if (c <= 0x08) {
+                return true;
+            }
+            if (c >= 0x0A && c <= 0x1F) {
+                return true;
+            }
+            if (c == 0x7F) {
+                return true;
+            }
+            return false;
         }
 
         Token scan_ident_or_keyword (int start_line, int start_column) {
