@@ -1,13 +1,12 @@
 namespace Toml {
     public class Array : Value {
-        public ArrayStyle style { get; set; }
+        public ArrayStyle style;
 
         private Gee.ArrayList<Value> items;
 
         public Array () {
-            Object ();
             kind = ValueKind.ARRAY;
-            style = new ArrayStyle ();
+            style = ArrayStyle ();
             items = new Gee.ArrayList<Value> ();
         }
 

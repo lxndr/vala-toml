@@ -55,6 +55,26 @@ void test_nested_table () {
     assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
 }
 
+void test_style_inplace_mutation () {
+    var t = new Toml.Table ();
+    t.style.inline = true;
+    t.style.dotted_keys = true;
+    t.style.multiline = true;
+    t.style.indent = 4;
+    assert (t.style.inline);
+    assert (t.style.dotted_keys);
+    assert (t.style.multiline);
+    assert (t.style.indent == 4);
+
+    var a = new Toml.Array ();
+    a.style.inline = true;
+    a.style.multiline = true;
+    a.style.indent = 3;
+    assert (a.style.inline);
+    assert (a.style.multiline);
+    assert (a.style.indent == 3);
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/parse_error_message", test_parse_error_message);
@@ -62,5 +82,6 @@ public static int main (string[] args) {
     Test.add_func ("/toml/table_insertion_order_and_get", test_table_insertion_order_and_get);
     Test.add_func ("/toml/array_basic", test_array_basic);
     Test.add_func ("/toml/nested_table", test_nested_table);
+    Test.add_func ("/toml/style_inplace_mutation", test_style_inplace_mutation);
     return Test.run ();
 }

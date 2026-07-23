@@ -1,14 +1,13 @@
 namespace Toml {
     public class Table : Value {
-        public TableStyle style { get; set; }
+        public TableStyle style;
 
         private Gee.HashMap<string, Value> entries;
         private Gee.ArrayList<Bytes> key_bytes_order;
 
         public Table () {
-            Object ();
             kind = ValueKind.TABLE;
-            style = new TableStyle ();
+            style = TableStyle ();
             entries = new Gee.HashMap<string, Value> ();
             key_bytes_order = new Gee.ArrayList<Bytes> ();
         }
