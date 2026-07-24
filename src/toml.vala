@@ -1,10 +1,24 @@
 namespace Toml {
+    /**
+     * Parse TOML text into a DOM table.
+     *
+     * @param text UTF-8 TOML source
+     * @return root table
+     * @throws ParseError if the source is invalid
+     */
     public Table parse_string (string text) throws ParseError {
         validate_source_bytes (text.data);
         var parser = new Parser (text);
         return parser.parse ();
     }
 
+    /**
+     * Parse TOML bytes into a DOM table.
+     *
+     * @param data UTF-8 TOML source bytes (no embedded NUL required for Vala string bridging)
+     * @return root table
+     * @throws ParseError if the source is invalid
+     */
     public Table parse_bytes (uint8[] data) throws ParseError {
         validate_source_bytes (data);
         // Source bytes must not contain embedded NUL (controls rejected). Safe as Vala string.
@@ -16,6 +30,13 @@ namespace Toml {
         return parser.parse ();
     }
 
+    /**
+     * Read an entire stream and parse it as TOML.
+     *
+     * @param stream source stream
+     * @return root table
+     * @throws ParseError on invalid TOML or I/O failure wrapped as ParseError
+     */
     public Table parse (InputStream stream) throws ParseError {
         try {
             var mos = new MemoryOutputStream.resizable ();
@@ -36,11 +57,27 @@ namespace Toml {
         }
     }
 
+    /**
+     * Serialize a table to a TOML string.
+     *
+     * @param root table to emit
+     * @param options writer options, or null for defaults
+     * @return TOML text
+     * @throws WriteError if the DOM cannot be emitted
+     */
     public string write_string (Table root, WriteOptions? options = null) throws WriteError {
         var writer = new Writer (options);
         return writer.emit (root);
     }
 
+    /**
+     * Serialize a table to an output stream.
+     *
+     * @param root table to emit
+     * @param stream destination
+     * @param options writer options, or null for defaults
+     * @throws WriteError if emission or writing fails
+     */
     public void write (Table root, OutputStream stream, WriteOptions? options = null) throws WriteError {
         string text = write_string (root, options);
         try {

@@ -1,4 +1,9 @@
 namespace Toml {
+    /**
+     * Deep-compare two values (including nested tables and arrays).
+     *
+     * @return true if both are null or structurally equal
+     */
     public bool values_equal (Value? a, Value? b) {
         if (a == b) {
             return true;

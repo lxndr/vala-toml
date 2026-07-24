@@ -1,8 +1,14 @@
 namespace Toml {
+    /**
+     * Error raised while parsing TOML.
+     */
     public errordomain ParseError {
         FAILED
     }
 
+    /**
+     * Error raised while writing TOML.
+     */
     public errordomain WriteError {
         FAILED
     }
