@@ -1,10 +1,15 @@
 namespace Toml {
+    /**
+     * A TOML table (key/value map) with write-style hints.
+     */
     public class Table : Value {
+        /** Emission style for this table. */
         public TableStyle style;
 
         private Gee.HashMap<string, Value> entries;
         private Gee.ArrayList<Bytes> key_bytes_order;
 
+        /** Create an empty table. */
         public Table () {
             kind = ValueKind.TABLE;
             style = TableStyle ();
@@ -12,10 +17,12 @@ namespace Toml {
             key_bytes_order = new Gee.ArrayList<Bytes> ();
         }
 
+        /** Number of keys. */
         public int size {
             get { return key_bytes_order.size; }
         }
 
+        /** Keys in insertion order (decoded as strings). */
         public Gee.List<string> keys {
             owned get {
                 var list = new Gee.ArrayList<string> ();
@@ -30,10 +37,12 @@ namespace Toml {
             get { return key_bytes_order; }
         }
 
+        /** Set a key from a Vala string. */
         public new void set (string key, Value value) {
             set_bytes (key.data, value);
         }
 
+        /** Set a key from raw key bytes. */
         public void set_bytes (uint8[] key_bytes, Value value) {
             string map_key = map_key_from_bytes (key_bytes);
             if (!entries.has_key (map_key)) {
@@ -42,14 +51,21 @@ namespace Toml {
             entries[map_key] = value;
         }
 
+        /** Get a value by string key, or null. */
         public new Value? get (string key) {
             return entries[map_key_from_bytes (key.data)];
         }
 
+        /** Get a value by raw key bytes, or null. */
         public Value? get_bytes (uint8[] key_bytes) {
             return entries[map_key_from_bytes (key_bytes)];
         }
 
+        /**
+         * Remove a key.
+         *
+         * @return true if the key existed
+         */
         public bool unset (string key) {
             string map_key = map_key_from_bytes (key.data);
             if (!entries.unset (map_key)) {
@@ -64,10 +80,12 @@ namespace Toml {
             return true;
         }
 
+        /** Whether a string key exists. */
         public bool has (string key) {
             return entries.has_key (map_key_from_bytes (key.data));
         }
 
+        /** Whether a raw-bytes key exists. */
         public bool has_bytes (uint8[] key_bytes) {
             return entries.has_key (map_key_from_bytes (key_bytes));
         }
