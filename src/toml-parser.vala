@@ -1,18 +1,18 @@
 namespace Toml {
     // public for v1: same package may expose via .vapi; parse_string is the API
     internal class Parser {
-        Lexer lexer;
-        Token current;
-        Table root;
-        Table current_table;
+        private Lexer lexer;
+        private Token current;
+        private Table root;
+        private Table current_table;
         // Tables opened via [header] (final segment of a header path)
-        Gee.HashSet<Table> explicit_tables;
+        private Gee.HashSet<Table> explicit_tables;
         // Tables created as dotted-key / key-value intermediates (cannot be reopened via [header])
-        Gee.HashSet<Table> dotted_tables;
+        private Gee.HashSet<Table> dotted_tables;
         // Arrays created via [[header]] (not value arrays)
-        Gee.HashSet<Array> aot_arrays;
+        private Gee.HashSet<Array> aot_arrays;
         // Inline tables — immutable after creation
-        Gee.HashSet<Table> closed_tables;
+        private Gee.HashSet<Table> closed_tables;
 
         public Parser (string input) throws ParseError {
             lexer = new Lexer (input);
@@ -57,21 +57,21 @@ namespace Toml {
             return root;
         }
 
-        void parse_standard_table_header () throws ParseError {
+        private void parse_standard_table_header () throws ParseError {
             expect_key (TokenKind.LBRACKET, "expected '['");
             var path = parse_key_path ();
             expect_key (TokenKind.RBRACKET, "expected ']'");
             current_table = define_standard_table (path);
         }
 
-        void parse_array_of_tables_header () throws ParseError {
+        private void parse_array_of_tables_header () throws ParseError {
             expect_key (TokenKind.DOUBLE_LBRACKET, "expected '[['");
             var path = parse_key_path ();
             expect_key (TokenKind.DOUBLE_RBRACKET, "expected ']]'");
             current_table = define_array_of_tables (path);
         }
 
-        Table resolve_header_parent (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table resolve_header_parent (Gee.ArrayList<Bytes> path) throws ParseError {
             Table table = root;
             for (int i = 0; i < path.size - 1; i++) {
                 uint8[] key = path[i].get_data ();
@@ -115,7 +115,7 @@ namespace Toml {
             return table;
         }
 
-        Table define_array_of_tables (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table define_array_of_tables (Gee.ArrayList<Bytes> path) throws ParseError {
             Table table = resolve_header_parent (path);
             uint8[] final_key = path[path.size - 1].get_data ();
             Array array;
@@ -142,7 +142,7 @@ namespace Toml {
             return child;
         }
 
-        Table define_standard_table (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table define_standard_table (Gee.ArrayList<Bytes> path) throws ParseError {
             Table table = resolve_header_parent (path);
             if (closed_tables.contains (table)) {
                 throw new ParseError.FAILED (
@@ -177,14 +177,14 @@ namespace Toml {
             return as_table;
         }
 
-        void parse_key_value (Table target) throws ParseError {
+        private void parse_key_value (Table target) throws ParseError {
             var path = parse_key_path ();
             expect_value (TokenKind.EQUALS, "expected '='");
             Value value = parse_value ();
             insert_path (target, path, value);
         }
 
-        Value parse_value () throws ParseError {
+        private Value parse_value () throws ParseError {
             if (current.kind == TokenKind.LBRACKET) {
                 return parse_array ();
             }
@@ -194,7 +194,7 @@ namespace Toml {
             return parse_scalar ();
         }
 
-        Array parse_array () throws ParseError {
+        private Array parse_array () throws ParseError {
             expect_value (TokenKind.LBRACKET, "expected '['");
             var array = new Array ();
             skip_newlines_value ();
@@ -219,7 +219,7 @@ namespace Toml {
             return array;
         }
 
-        Table parse_inline_table () throws ParseError {
+        private Table parse_inline_table () throws ParseError {
             expect_key (TokenKind.LBRACE, "expected '{'");
             var table = new Table ();
             skip_newlines_key ();
@@ -248,19 +248,19 @@ namespace Toml {
             return table;
         }
 
-        void skip_newlines_value () throws ParseError {
+        private void skip_newlines_value () throws ParseError {
             while (current.kind == TokenKind.NEWLINE) {
                 advance_value ();
             }
         }
 
-        void skip_newlines_key () throws ParseError {
+        private void skip_newlines_key () throws ParseError {
             while (current.kind == TokenKind.NEWLINE) {
                 advance_key ();
             }
         }
 
-        Gee.ArrayList<Bytes> parse_key_path () throws ParseError {
+        private Gee.ArrayList<Bytes> parse_key_path () throws ParseError {
             var path = new Gee.ArrayList<Bytes> ();
             path.add (new Bytes (parse_key_segment ()));
             while (current.kind == TokenKind.DOT) {
@@ -270,7 +270,7 @@ namespace Toml {
             return path;
         }
 
-        uint8[] parse_key_segment () throws ParseError {
+        private uint8[] parse_key_segment () throws ParseError {
             if (current.kind == TokenKind.KEY) {
                 uint8[] key = current.text.data;
                 advance_key ();
@@ -285,7 +285,7 @@ namespace Toml {
                 format_parse_error (current.line, current.column, "expected key"));
         }
 
-        Value parse_scalar () throws ParseError {
+        private Value parse_scalar () throws ParseError {
             switch (current.kind) {
             case TokenKind.STRING: {
                 Value v;
@@ -338,7 +338,7 @@ namespace Toml {
             }
         }
 
-        void insert_path (Table target, Gee.ArrayList<Bytes> path, Value value) throws ParseError {
+        private void insert_path (Table target, Gee.ArrayList<Bytes> path, Value value) throws ParseError {
             Table table = target;
             for (int i = 0; i < path.size - 1; i++) {
                 uint8[] key = path[i].get_data ();
@@ -389,7 +389,7 @@ namespace Toml {
             table.set_bytes (final_key, value);
         }
 
-        void expect_key (TokenKind kind, string message) throws ParseError {
+        private void expect_key (TokenKind kind, string message) throws ParseError {
             if (current.kind != kind) {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, message));
@@ -397,7 +397,7 @@ namespace Toml {
             advance_key ();
         }
 
-        void expect_value (TokenKind kind, string message) throws ParseError {
+        private void expect_value (TokenKind kind, string message) throws ParseError {
             if (current.kind != kind) {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, message));
@@ -405,17 +405,17 @@ namespace Toml {
             advance_value ();
         }
 
-        void advance_key () throws ParseError {
+        private void advance_key () throws ParseError {
             lexer.key_mode = true;
             current = lexer.next ();
         }
 
-        void advance_value () throws ParseError {
+        private void advance_value () throws ParseError {
             lexer.key_mode = false;
             current = lexer.next ();
         }
 
-        static int64 parse_integer (string text, int line, int column) throws ParseError {
+        private static int64 parse_integer (string text, int line, int column) throws ParseError {
             string cleaned = text.replace ("_", "");
             int base_ = 10;
             string body = cleaned;
@@ -462,7 +462,7 @@ namespace Toml {
             return (int64) u;
         }
 
-        static double parse_float (string text, int line, int column) throws ParseError {
+        private static double parse_float (string text, int line, int column) throws ParseError {
             string cleaned = text.replace ("_", "");
             if (cleaned == "inf" || cleaned == "+inf") {
                 return double.INFINITY;

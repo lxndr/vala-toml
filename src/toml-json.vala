@@ -259,9 +259,9 @@ namespace Toml {
 
     // Minimal tagged-JSON parser that preserves embedded NUL in strings.
     private class TaggedJsonParser {
-        string input;
-        int pos;
-        int length;
+        private string input;
+        private int pos;
+        private int length;
 
         public TaggedJsonParser (string input) {
             this.input = input;
@@ -283,7 +283,7 @@ namespace Toml {
             return table;
         }
 
-        Value parse_value () throws Error {
+        private Value parse_value () throws Error {
             skip_ws ();
             if (pos >= length) {
                 throw new ParseError.FAILED ("unexpected end of JSON");
@@ -298,7 +298,7 @@ namespace Toml {
             throw new ParseError.FAILED ("unexpected JSON value");
         }
 
-        Value parse_object () throws Error {
+        private Value parse_object () throws Error {
             expect ('{');
             skip_ws ();
             var keys = new Gee.HashMap<string, Value> ();
@@ -354,7 +354,7 @@ namespace Toml {
             return table;
         }
 
-        Value parse_array () throws Error {
+        private Value parse_array () throws Error {
             expect ('[');
             var array = new Array ();
             // JSON-imported arrays are always value-position (inline), never header AoT.
@@ -383,7 +383,7 @@ namespace Toml {
             return array;
         }
 
-        Value tagged_from (string type_name, uint8[]? encoded_bytes) throws Error {
+        private Value tagged_from (string type_name, uint8[]? encoded_bytes) throws Error {
             string encoded = Value.string_from_bytes (encoded_bytes);
             switch (type_name) {
             case "string":
@@ -413,7 +413,7 @@ namespace Toml {
             }
         }
 
-        double decode_float (string encoded) throws Error {
+        private double decode_float (string encoded) throws Error {
             if (encoded == "nan" || encoded == "+nan" || encoded == "-nan") {
                 return double.NAN;
             }
@@ -430,12 +430,12 @@ namespace Toml {
             return result;
         }
 
-        string parse_string_text () throws Error {
+        private string parse_string_text () throws Error {
             uint8[] bytes = parse_string_bytes ();
             return Value.string_from_bytes (bytes);
         }
 
-        uint8[] parse_string_bytes () throws Error {
+        private uint8[] parse_string_bytes () throws Error {
             expect ('"');
             var buf = new StringBuilder ();
             while (pos < length) {
@@ -487,7 +487,7 @@ namespace Toml {
             throw new ParseError.FAILED ("unterminated JSON string");
         }
 
-        unichar parse_json_unicode () throws Error {
+        private unichar parse_json_unicode () throws Error {
             uint32 code = 0;
             for (int i = 0; i < 4; i++) {
                 if (pos >= length) {
@@ -509,7 +509,7 @@ namespace Toml {
             return (unichar) code;
         }
 
-        void skip_ws () {
+        private void skip_ws () {
             while (pos < length) {
                 unichar c = peek ();
                 if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
@@ -520,7 +520,7 @@ namespace Toml {
             }
         }
 
-        void expect (unichar c) throws Error {
+        private void expect (unichar c) throws Error {
             skip_ws ();
             if (pos >= length || peek () != c) {
                 throw new ParseError.FAILED ("expected '%s'".printf (c.to_string ()));
@@ -528,11 +528,11 @@ namespace Toml {
             advance ();
         }
 
-        unichar peek () {
+        private unichar peek () {
             return input.get_char (pos);
         }
 
-        void advance () {
+        private void advance () {
             unichar c;
             input.get_next_char (ref pos, out c);
         }

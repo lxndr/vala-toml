@@ -46,7 +46,7 @@ namespace Toml {
             this.column = column;
         }
 
-        static string bytes_to_visible_text (uint8[] bytes) {
+        private static string bytes_to_visible_text (uint8[] bytes) {
             for (int i = 0; i < bytes.length; i++) {
                 if (bytes[i] == 0) {
                     return "";

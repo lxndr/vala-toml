@@ -14,17 +14,17 @@ namespace Toml {
             return buf.str;
         }
 
-        int resolve_indent (int node_indent) {
+        private int resolve_indent (int node_indent) {
             return node_indent >= 0 ? node_indent : options.indent;
         }
 
-        void append_spaces (int n) {
+        private void append_spaces (int n) {
             for (int i = 0; i < n; i++) {
                 buf.append_c (' ');
             }
         }
 
-        void emit_table_body (Table table, Gee.ArrayList<Bytes> path) throws WriteError {
+        private void emit_table_body (Table table, Gee.ArrayList<Bytes> path) throws WriteError {
             var nested = new Gee.ArrayList<Bytes> ();
             for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
                 Bytes key_b = table.key_bytes_list[ki];
@@ -69,7 +69,7 @@ namespace Toml {
             }
         }
 
-        bool is_dotted_eligible (Table table) {
+        private bool is_dotted_eligible (Table table) {
             if (table.size == 0) {
                 return false;
             }
@@ -92,7 +92,7 @@ namespace Toml {
             return true;
         }
 
-        void emit_dotted_leaves (Gee.ArrayList<Bytes> prefix, Table table) throws WriteError {
+        private void emit_dotted_leaves (Gee.ArrayList<Bytes> prefix, Table table) throws WriteError {
             for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
                 Bytes key_b = table.key_bytes_list[ki];
                 uint8[] key = key_b.get_data ();
@@ -109,7 +109,7 @@ namespace Toml {
             }
         }
 
-        void emit_array_of_tables (Array array, Gee.ArrayList<Bytes> path) throws WriteError {
+        private void emit_array_of_tables (Array array, Gee.ArrayList<Bytes> path) throws WriteError {
             for (int i = 0; i < array.size; i++) {
                 var elem = array.get (i) as Table;
                 if (elem == null) {
@@ -120,7 +120,7 @@ namespace Toml {
             }
         }
 
-        bool is_array_of_tables (Array array) {
+        private bool is_array_of_tables (Array array) {
             if (array.size == 0) {
                 return false;
             }
@@ -132,19 +132,19 @@ namespace Toml {
             return true;
         }
 
-        void emit_table_header (Gee.ArrayList<Bytes> path) {
+        private void emit_table_header (Gee.ArrayList<Bytes> path) {
             buf.append_c ('[');
             emit_key_path (path);
             buf.append ("]\n");
         }
 
-        void emit_aot_header (Gee.ArrayList<Bytes> path) {
+        private void emit_aot_header (Gee.ArrayList<Bytes> path) {
             buf.append ("[[");
             emit_key_path (path);
             buf.append ("]]\n");
         }
 
-        void emit_key_path (Gee.ArrayList<Bytes> path) {
+        private void emit_key_path (Gee.ArrayList<Bytes> path) {
             for (int i = 0; i < path.size; i++) {
                 if (i > 0) {
                     buf.append_c ('.');
@@ -153,7 +153,7 @@ namespace Toml {
             }
         }
 
-        Gee.ArrayList<Bytes> append_path (Gee.ArrayList<Bytes> path, Bytes key) {
+        private Gee.ArrayList<Bytes> append_path (Gee.ArrayList<Bytes> path, Bytes key) {
             var next = new Gee.ArrayList<Bytes> ();
             foreach (var p in path) {
                 next.add (p);
@@ -162,11 +162,11 @@ namespace Toml {
             return next;
         }
 
-        void emit_key (string key) {
+        private void emit_key (string key) {
             emit_key_bytes (key.data);
         }
 
-        void emit_key_bytes (uint8[] key) {
+        private void emit_key_bytes (uint8[] key) {
             if (is_bare_key_bytes (key)) {
                 buf.append_len ((string) key, key.length);
             } else {
@@ -174,7 +174,7 @@ namespace Toml {
             }
         }
 
-        bool is_bare_key_bytes (uint8[] key) {
+        private bool is_bare_key_bytes (uint8[] key) {
             if (key.length == 0) {
                 return false;
             }
@@ -190,7 +190,7 @@ namespace Toml {
             return true;
         }
 
-        void emit_value (Value value, int base_indent) throws WriteError {
+        private void emit_value (Value value, int base_indent) throws WriteError {
             switch (value.kind) {
             case ValueKind.STRING:
                 emit_basic_string_bytes (value.get_string_bytes ());
@@ -221,7 +221,7 @@ namespace Toml {
             }
         }
 
-        void validate_inline_table (Table table) throws WriteError {
+        private void validate_inline_table (Table table) throws WriteError {
             for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
                 Bytes key_b = table.key_bytes_list[ki];
                 uint8[] key = key_b.get_data ();
@@ -237,7 +237,7 @@ namespace Toml {
             }
         }
 
-        void emit_inline_table (Table table, int base_indent) throws WriteError {
+        private void emit_inline_table (Table table, int base_indent) throws WriteError {
             validate_inline_table (table);
 
             if (!table.style.multiline) {
@@ -276,7 +276,7 @@ namespace Toml {
             buf.append_c ('}');
         }
 
-        bool array_has_table_element (Array array) {
+        private bool array_has_table_element (Array array) {
             for (int i = 0; i < array.size; i++) {
                 if (array.get (i) is Table) {
                     return true;
@@ -285,7 +285,7 @@ namespace Toml {
             return false;
         }
 
-        void emit_inline_array (Array array, int base_indent) throws WriteError {
+        private void emit_inline_array (Array array, int base_indent) throws WriteError {
             // Nested non-inline AoT inside a value-position array is illegal.
             if (is_array_of_tables (array) && !array.style.inline) {
                 throw new WriteError.FAILED ("array-of-tables cannot be emitted in value position without inline style");
@@ -324,7 +324,7 @@ namespace Toml {
             buf.append_c (']');
         }
 
-        void emit_float (double v) {
+        private void emit_float (double v) {
             if (v != v) {
                 buf.append ("nan");
                 return;
@@ -351,7 +351,7 @@ namespace Toml {
             buf.append (s);
         }
 
-        void emit_basic_string_bytes (uint8[]? bytes) {
+        private void emit_basic_string_bytes (uint8[]? bytes) {
             buf.append_c ('"');
             if (bytes != null) {
                 int i = 0;
@@ -402,7 +402,7 @@ namespace Toml {
             buf.append_c ('"');
         }
 
-        static int utf8_next (uint8[] bytes, int i, out unichar c) {
+        private static int utf8_next (uint8[] bytes, int i, out unichar c) {
             c = 0;
             if (i >= bytes.length) {
                 return 0;

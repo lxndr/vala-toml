@@ -1,11 +1,11 @@
 namespace Toml {
     // public for v1: tests link via generated .vapi, which omits `internal` types
     public class Lexer {
-        string input;
-        int pos;
-        int line;
-        int column;
-        int length;
+        private string input;
+        private int pos;
+        private int line;
+        private int column;
+        private int length;
         public bool key_mode;
 
         public Lexer (string input) {
@@ -106,7 +106,7 @@ namespace Toml {
                 format_parse_error (start_line, start_column, "unexpected character"));
         }
 
-        void skip_whitespace_and_comments () throws ParseError {
+        private void skip_whitespace_and_comments () throws ParseError {
             while (pos < length) {
                 unichar c = peek ();
                 if (c == ' ' || c == '\t') {
@@ -129,14 +129,14 @@ namespace Toml {
             }
         }
 
-        static bool is_bare_control (unichar c) {
+        private static bool is_bare_control (unichar c) {
             if (c == '\t' || c == '\n' || c == '\r') {
                 return false;
             }
             return c <= 0x1F || c == 0x7F;
         }
 
-        Token scan_string (int start_line, int start_column) throws ParseError {
+        private Token scan_string (int start_line, int start_column) throws ParseError {
             unichar quote = peek ();
             bool triple = (pos + 2 < length
                 && input.get_char (pos + 1) == quote
@@ -167,12 +167,12 @@ namespace Toml {
             return scan_literal_string (start_line, start_column);
         }
 
-        Token token_from_builder (StringBuilder buf, int start_line, int start_column) {
+        private Token token_from_builder (StringBuilder buf, int start_line, int start_column) {
             uint8[] bytes = buf.data[0:buf.len];
             return new Token.with_bytes (TokenKind.STRING, bytes, start_line, start_column);
         }
 
-        Token scan_bare_key (int start_line, int start_column) {
+        private Token scan_bare_key (int start_line, int start_column) {
             int start = pos;
             while (pos < length && is_bare_key_char (peek ())) {
                 advance ();
@@ -181,7 +181,7 @@ namespace Toml {
             return new Token (TokenKind.KEY, text, start_line, start_column);
         }
 
-        Token scan_basic_string (int start_line, int start_column) throws ParseError {
+        private Token scan_basic_string (int start_line, int start_column) throws ParseError {
             var buf = new StringBuilder ();
             while (pos < length) {
                 unichar c = peek ();
@@ -209,7 +209,7 @@ namespace Toml {
                 format_parse_error (start_line, start_column, "unterminated string"));
         }
 
-        Token scan_literal_string (int start_line, int start_column) throws ParseError {
+        private Token scan_literal_string (int start_line, int start_column) throws ParseError {
             var buf = new StringBuilder ();
             while (pos < length) {
                 unichar c = peek ();
@@ -232,7 +232,7 @@ namespace Toml {
                 format_parse_error (start_line, start_column, "unterminated string"));
         }
 
-        Token scan_multiline_basic_string (int start_line, int start_column) throws ParseError {
+        private Token scan_multiline_basic_string (int start_line, int start_column) throws ParseError {
             var buf = new StringBuilder ();
             while (pos < length) {
                 unichar c = peek ();
@@ -285,7 +285,7 @@ namespace Toml {
                 format_parse_error (start_line, start_column, "unterminated string"));
         }
 
-        Token scan_multiline_literal_string (int start_line, int start_column) throws ParseError {
+        private Token scan_multiline_literal_string (int start_line, int start_column) throws ParseError {
             var buf = new StringBuilder ();
             while (pos < length) {
                 unichar c = peek ();
@@ -326,7 +326,7 @@ namespace Toml {
                 format_parse_error (start_line, start_column, "unterminated string"));
         }
 
-        int count_quotes (unichar quote) {
+        private int count_quotes (unichar quote) {
             int count = 0;
             int i = pos;
             while (i < length && input.get_char (i) == quote) {
@@ -336,7 +336,7 @@ namespace Toml {
             return count;
         }
 
-        bool is_line_ending_backslash () {
+        private bool is_line_ending_backslash () {
             // After consuming '\', check if remaining is ws* newline
             int i = pos;
             while (i < length) {
@@ -350,7 +350,7 @@ namespace Toml {
             return false;
         }
 
-        void skip_escaped_newline () throws ParseError {
+        private void skip_escaped_newline () throws ParseError {
             // Skip ws before newline
             while (pos < length && (peek () == ' ' || peek () == '\t')) {
                 advance ();
@@ -375,7 +375,7 @@ namespace Toml {
             }
         }
 
-        void consume_newline () throws ParseError {
+        private void consume_newline () throws ParseError {
             if (pos >= length) {
                 return;
             }
@@ -391,7 +391,7 @@ namespace Toml {
             }
         }
 
-        unichar scan_escape (int start_line, int start_column) throws ParseError {
+        private unichar scan_escape (int start_line, int start_column) throws ParseError {
             if (pos >= length) {
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "unterminated escape"));
@@ -427,7 +427,7 @@ namespace Toml {
             }
         }
 
-        unichar scan_unicode_escape (int digits, int start_line, int start_column) throws ParseError {
+        private unichar scan_unicode_escape (int digits, int start_line, int start_column) throws ParseError {
             uint32 code = 0;
             for (int i = 0; i < digits; i++) {
                 if (pos >= length || !is_hex_digit (peek ())) {
@@ -453,7 +453,7 @@ namespace Toml {
             return (unichar) code;
         }
 
-        static bool is_disallowed_control (unichar c, bool multiline) {
+        private static bool is_disallowed_control (unichar c, bool multiline) {
             // Tab always allowed. Multiline also allows LF/CR (handled separately as newlines).
             if (c == '\t') {
                 return false;
@@ -474,7 +474,7 @@ namespace Toml {
             return false;
         }
 
-        Token scan_ident_or_keyword (int start_line, int start_column) {
+        private Token scan_ident_or_keyword (int start_line, int start_column) {
             int start = pos;
             while (pos < length && is_bare_key_char (peek ())) {
                 advance ();
@@ -490,7 +490,7 @@ namespace Toml {
             return new Token (TokenKind.KEY, text, start_line, start_column);
         }
 
-        Token scan_number_or_datetime (int start_line, int start_column) throws ParseError {
+        private Token scan_number_or_datetime (int start_line, int start_column) throws ParseError {
             int start = pos;
             unichar first = peek ();
             bool signed = (first == '+' || first == '-');
@@ -607,7 +607,7 @@ namespace Toml {
 
         // Try TOML 1.1 date/time from `start` (current pos is after the leading digit run).
         // Returns null if the digit run is not a datetime shape (caller continues as number).
-        Token? try_scan_datetime (int start, int start_line, int start_column) throws ParseError {
+        private Token? try_scan_datetime (int start, int start_line, int start_column) throws ParseError {
             string leading = input.substring (start, pos - start);
             if (leading.contains ("_")) {
                 return null;
@@ -688,21 +688,21 @@ namespace Toml {
             return null;
         }
 
-        void validate_date_parts (int year, int month, int day, int line, int column) throws ParseError {
+        private void validate_date_parts (int year, int month, int day, int line, int column) throws ParseError {
             if (month < 1 || month > 12 || day < 1 || day > days_in_month (year, month)) {
                 throw new ParseError.FAILED (
                     format_parse_error (line, column, "invalid date"));
             }
         }
 
-        void validate_time_parts (int hour, int minute, int second, int line, int column) throws ParseError {
+        private void validate_time_parts (int hour, int minute, int second, int line, int column) throws ParseError {
             if (hour > 23 || minute > 59 || second > 59) {
                 throw new ParseError.FAILED (
                     format_parse_error (line, column, "invalid time"));
             }
         }
 
-        static int days_in_month (int year, int month) {
+        private static int days_in_month (int year, int month) {
             switch (month) {
             case 1: case 3: case 5: case 7: case 8: case 10: case 12:
                 return 31;
@@ -718,11 +718,11 @@ namespace Toml {
             }
         }
 
-        static bool is_date_time_separator (unichar c) {
+        private static bool is_date_time_separator (unichar c) {
             return c == 'T' || c == 't' || c == ' ';
         }
 
-        bool scan_full_date (out int year, out int month, out int day) {
+        private bool scan_full_date (out int year, out int month, out int day) {
             year = 0;
             month = 0;
             day = 0;
@@ -753,7 +753,7 @@ namespace Toml {
             return true;
         }
 
-        bool scan_partial_time (out int hour, out int minute, out int second) {
+        private bool scan_partial_time (out int hour, out int minute, out int second) {
             hour = 0;
             minute = 0;
             second = 0;
@@ -794,7 +794,7 @@ namespace Toml {
 
         // Returns true if a complete offset was scanned, false if none present.
         // If +/− is seen, a full ±HH:MM is required — incomplete offsets throw.
-        bool scan_time_offset (int start_line, int start_column, out int oh, out int om) throws ParseError {
+        private bool scan_time_offset (int start_line, int start_column, out int oh, out int om) throws ParseError {
             oh = 0;
             om = 0;
             // Z / z / (+|-)HH:MM
@@ -834,7 +834,7 @@ namespace Toml {
             return true;
         }
 
-        bool consume_n_digits (int n) {
+        private bool consume_n_digits (int n) {
             for (int i = 0; i < n; i++) {
                 if (pos >= length || !peek ().isdigit ()) {
                     return false;
@@ -844,7 +844,7 @@ namespace Toml {
             return true;
         }
 
-        bool has_valid_exponent () {
+        private bool has_valid_exponent () {
             int i = pos + 1; // after e/E
             if (i >= length) {
                 return false;
@@ -860,9 +860,9 @@ namespace Toml {
             return c.isdigit ();
         }
 
-        delegate bool DigitPred (unichar c);
+        private delegate bool DigitPred (unichar c);
 
-        Token scan_prefixed_integer (int start, int start_line, int start_column, DigitPred is_digit) throws ParseError {
+        private Token scan_prefixed_integer (int start, int start_line, int start_column, DigitPred is_digit) throws ParseError {
             advance (); // '0'
             advance (); // x/o/b
             if (pos >= length || !is_digit (peek ())) {
@@ -881,11 +881,11 @@ namespace Toml {
             return new Token (TokenKind.INTEGER, text, start_line, start_column);
         }
 
-        bool scan_decimal_digits () {
+        private bool scan_decimal_digits () {
             return scan_digits_with_underscores ((c) => c.isdigit ());
         }
 
-        bool scan_digits_with_underscores (DigitPred is_digit) {
+        private bool scan_digits_with_underscores (DigitPred is_digit) {
             if (pos >= length || !is_digit (peek ())) {
                 return false;
             }
@@ -909,11 +909,11 @@ namespace Toml {
             return true;
         }
 
-        unichar peek () {
+        private unichar peek () {
             return input.get_char (pos);
         }
 
-        void advance () {
+        private void advance () {
             if (pos >= length) {
                 return;
             }
@@ -927,27 +927,27 @@ namespace Toml {
             }
         }
 
-        static bool is_bare_key_start (unichar c) {
+        private static bool is_bare_key_start (unichar c) {
             // Bare keys are ASCII only: A-Za-z_
             return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == '-';
         }
 
-        static bool is_bare_key_char (unichar c) {
+        private static bool is_bare_key_char (unichar c) {
             return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
                 || c.isdigit () || c == '_' || c == '-';
         }
 
-        static bool is_hex_digit (unichar c) {
+        private static bool is_hex_digit (unichar c) {
             return c.isdigit ()
                 || (c >= 'a' && c <= 'f')
                 || (c >= 'A' && c <= 'F');
         }
 
-        static bool is_oct_digit (unichar c) {
+        private static bool is_oct_digit (unichar c) {
             return c >= '0' && c <= '7';
         }
 
-        static bool is_bin_digit (unichar c) {
+        private static bool is_bin_digit (unichar c) {
             return c == '0' || c == '1';
         }
     }
