@@ -1,6 +1,6 @@
 namespace Toml {
-    // public for v1: tests link via generated .vapi, which omits `internal` types
-    public class Lexer {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal class Lexer {
         private string input;
         private int pos;
         private int line;

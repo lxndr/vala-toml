@@ -1,5 +1,4 @@
 namespace Toml {
-    // public for v1: same package may expose via .vapi; parse_string is the API
     internal class Parser {
         private Lexer lexer;
         private Token current;

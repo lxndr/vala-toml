@@ -1,6 +1,6 @@
 namespace Toml {
-    // public for v1: tests link via generated .vapi, which omits `internal` types
-    public enum TokenKind {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal enum TokenKind {
         EOF,
         NEWLINE,
         EQUALS,
@@ -23,7 +23,8 @@ namespace Toml {
         TIME_LOCAL
     }
 
-    public struct Token {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal struct Token {
         public TokenKind kind;
         public string text;
         public uint8[]? bytes;

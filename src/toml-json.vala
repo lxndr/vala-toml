@@ -1,11 +1,13 @@
 namespace Toml {
-    public string table_to_tagged_json (Table root) {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal string table_to_tagged_json (Table root) {
         var sb = new StringBuilder ();
         append_json_value (sb, root);
         return sb.str;
     }
 
-    public Table table_from_tagged_json (string json) throws Error {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal Table table_from_tagged_json (string json) throws Error {
         var p = new TaggedJsonParser (json);
         return p.parse_table ();
     }
