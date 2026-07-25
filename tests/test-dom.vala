@@ -131,6 +131,38 @@ void test_shared_table_survives_sibling_destroy () {
 }
 
 /*
+ * A and B both hold shared S; S holds nested N (only reachable via S).
+ * Edge-count alone marks N exclusive and clears it while S still lives.
+ * Nested containers under externally shared seeds must be preserved.
+ */
+void test_shared_nested_survives_sibling_destroy () {
+    try {
+        var shared = new Toml.Table ();
+        {
+            var nested = new Toml.Table ();
+            nested.set ("keep", Toml.Value.from_integer (7));
+            shared.set ("nested", nested);
+        }
+
+        var dying = new Toml.Table ();
+        dying.set ("shared", shared);
+
+        var live = new Toml.Table ();
+        live.set ("shared", shared);
+
+        dying = null;
+
+        assert (live.get ("shared").as_table ()
+                    .get ("nested").as_table ()
+                    .get ("keep").get_integer () == 7);
+        assert (shared.get ("nested").as_table ()
+                    .get ("keep").get_integer () == 7);
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
+/*
  * Double-edge chain: each parent holds the same child under two keys.
  * The old ref_count==2 rule skips every child (rc>=3), then each layer
  * finalizes recursively when the parent clears — SIGSEGV on deep DAGs
@@ -185,6 +217,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/dom/table_array_cycle_fails", test_table_array_cycle_fails);
     Test.add_func ("/toml/dom/deep_table_destroy_ok", test_deep_table_destroy_ok);
     Test.add_func ("/toml/dom/shared_table_survives_sibling_destroy", test_shared_table_survives_sibling_destroy);
+    Test.add_func ("/toml/dom/shared_nested_survives_sibling_destroy", test_shared_nested_survives_sibling_destroy);
     Test.add_func ("/toml/dom/diamond_join_deep_destroy_ok", test_diamond_join_deep_destroy_ok);
     return Test.run ();
 }
