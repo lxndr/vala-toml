@@ -1,4 +1,77 @@
 namespace Toml {
+    internal void drain_container_tree (Value root) {
+        var hold = new Gee.ArrayList<Value> ();
+        var queue = new Gee.ArrayList<Value> ();
+        var seen = new Gee.HashSet<unowned Value> (
+            (Gee.HashDataFunc<unowned Value>) GLib.direct_hash,
+            (Gee.EqualDataFunc<unowned Value>) GLib.direct_equal);
+        seen.add (root);
+        unowned Table? root_table = root as Table;
+        if (root_table != null) {
+            foreach (var key_bytes in root_table.key_bytes_list) {
+                Value? child = root_table.get_bytes (key_bytes.get_data ());
+                if (child is Table || child is Array) {
+                    queue.add (child);
+                }
+            }
+        } else {
+            unowned Array? root_array = root as Array;
+            if (root_array != null) {
+                for (int i = 0; i < root_array.size; i++) {
+                    Value child = root_array.get (i);
+                    if (child is Table || child is Array) {
+                        queue.add (child);
+                    }
+                }
+            }
+        }
+        while (queue.size > 0) {
+            var cur = queue.remove_at (0);
+            if (!seen.add (cur)) {
+                continue;
+            }
+            hold.add (cur);
+            var table = cur as Table;
+            if (table != null) {
+                foreach (var key_bytes in table.key_bytes_list) {
+                    Value? child = table.get_bytes (key_bytes.get_data ());
+                    if (child is Table || child is Array) {
+                        queue.add (child);
+                    }
+                }
+                continue;
+            }
+            var array = cur as Array;
+            if (array != null) {
+                for (int i = 0; i < array.size; i++) {
+                    Value child = array.get (i);
+                    if (child is Table || child is Array) {
+                        queue.add (child);
+                    }
+                }
+            }
+        }
+        if (root_table != null) {
+            root_table.clear_entries_for_dispose ();
+        } else {
+            unowned Array? root_array = root as Array;
+            if (root_array != null) {
+                root_array.clear_items_for_dispose ();
+            }
+        }
+        foreach (var cur in hold) {
+            var table = cur as Table;
+            if (table != null) {
+                table.clear_entries_for_dispose ();
+                continue;
+            }
+            var array = cur as Array;
+            if (array != null) {
+                array.clear_items_for_dispose ();
+            }
+        }
+    }
+
     internal bool value_reaches (Value from, Value dest) {
         if (from == dest) {
             return true;
@@ -54,6 +127,7 @@ namespace Toml {
 
         private Gee.HashMap<string, Value> entries;
         private Gee.ArrayList<Bytes> key_bytes_order;
+        private bool disposing;
 
         /** Create an empty table. */
         public Table () {
@@ -61,6 +135,7 @@ namespace Toml {
             style = TableStyle ();
             entries = new Gee.HashMap<string, Value> ();
             key_bytes_order = new Gee.ArrayList<Bytes> ();
+            disposing = false;
         }
 
         /** Number of keys. */
@@ -145,6 +220,18 @@ namespace Toml {
 
         public override Table? as_table () {
             return this;
+        }
+
+        internal void clear_entries_for_dispose () {
+            entries.clear ();
+            key_bytes_order.clear ();
+        }
+
+        ~Table () {
+            if (!disposing) {
+                disposing = true;
+                drain_container_tree (this);
+            }
         }
 
         internal static string map_key_from_bytes (uint8[] bytes) {
