@@ -1,9 +1,7 @@
 namespace Toml {
     [CCode (cheader_filename = "vala-toml-internal.h")]
     internal string table_to_tagged_json (Table root) throws WriteError {
-        var sb = new StringBuilder ();
-        append_json_value (sb, root);
-        return sb.str;
+        return new TaggedJsonEncoder ().encode (root);
     }
 
     [CCode (cheader_filename = "vala-toml-internal.h")]
@@ -12,100 +10,142 @@ namespace Toml {
         return p.parse_table ();
     }
 
-    private void append_json_value (StringBuilder sb, Value value) {
-        switch (value.kind) {
-        case ValueKind.TABLE:
-            append_json_table (sb, (Table) value);
-            break;
-        case ValueKind.ARRAY:
-            append_json_array (sb, (Array) value);
-            break;
-        default:
-            append_json_scalar (sb, value);
-            break;
-        }
-    }
+    private class TaggedJsonEncoder {
+        private StringBuilder sb;
+        private int json_depth;
+        private Gee.HashSet<Value> active;
 
-    private void append_json_table (StringBuilder sb, Table table) {
-        sb.append_c ('{');
-        bool first = true;
-        for (int i = 0; i < table.key_bytes_list.size; i++) {
-            if (!first) {
-                sb.append_c (',');
+        public string encode (Table root) throws WriteError {
+            sb = new StringBuilder ();
+            json_depth = 0;
+            active = new Gee.HashSet<Value> (
+                (Gee.HashDataFunc<Value>) GLib.direct_hash,
+                (Gee.EqualDataFunc<Value>) GLib.direct_equal);
+            append_value (root);
+            return sb.str;
+        }
+
+        private void enter_container (Value node) throws WriteError {
+            if (active.contains (node)) {
+                throw new WriteError.FAILED ("cyclic DOM");
             }
-            first = false;
-            uint8[] kb = table.key_bytes_list[i].get_data ();
-            append_json_string_bytes (sb, kb);
-            sb.append_c (':');
-            append_json_value (sb, table.get_bytes (kb));
-        }
-        sb.append_c ('}');
-    }
-
-    private void append_json_array (StringBuilder sb, Array array) {
-        sb.append_c ('[');
-        for (int i = 0; i < array.size; i++) {
-            if (i > 0) {
-                sb.append_c (',');
+            if (json_depth >= MAX_VALUE_NESTING) {
+                throw new WriteError.FAILED ("maximum nesting depth exceeded");
             }
-            append_json_value (sb, array.get (i));
+            active.add (node);
+            json_depth++;
         }
-        sb.append_c (']');
-    }
 
-    private void append_json_scalar (StringBuilder sb, Value value) {
-        string type_name;
-        switch (value.kind) {
-        case ValueKind.STRING:
-            type_name = "string";
-            sb.append ("{\"type\":");
-            append_json_string_text (sb, type_name);
-            sb.append (",\"value\":");
-            append_json_string_bytes (sb, value.get_string_bytes ());
-            sb.append_c ('}');
-            return;
-        case ValueKind.INTEGER:
-            type_name = "integer";
-            append_tagged (sb, type_name, value.get_integer ().to_string ());
-            return;
-        case ValueKind.FLOAT:
-            type_name = "float";
-            append_tagged (sb, type_name, encode_float (value.get_float ()));
-            return;
-        case ValueKind.BOOLEAN:
-            type_name = "bool";
-            append_tagged (sb, type_name, value.get_boolean () ? "true" : "false");
-            return;
-        case ValueKind.OFFSET_DATETIME: {
-            type_name = "datetime";
-            var dt = value.get_offset_datetime ();
-            assert (dt != null);
-            append_tagged (sb, type_name, format_offset_datetime (dt));
-            return;
+        private void leave_container (Value node) {
+            active.remove (node);
+            json_depth--;
         }
-        case ValueKind.LOCAL_DATETIME: {
-            type_name = "datetime-local";
-            var ldt = value.get_local_datetime ();
-            assert (ldt != null);
-            append_tagged (sb, type_name, format_local_datetime (ldt));
-            return;
+
+        private void append_value (Value value) throws WriteError {
+            switch (value.kind) {
+            case ValueKind.TABLE:
+                append_table ((Table) value);
+                break;
+            case ValueKind.ARRAY:
+                append_array ((Array) value);
+                break;
+            default:
+                append_scalar (value);
+                break;
+            }
         }
-        case ValueKind.LOCAL_DATE: {
-            type_name = "date-local";
-            var d = value.get_local_date ();
-            assert (d != null);
-            append_tagged (sb, type_name, format_local_date (d));
-            return;
+
+        private void append_table (Table table) throws WriteError {
+            enter_container (table);
+            try {
+                sb.append_c ('{');
+                bool first = true;
+                for (int i = 0; i < table.key_bytes_list.size; i++) {
+                    if (!first) {
+                        sb.append_c (',');
+                    }
+                    first = false;
+                    uint8[] kb = table.key_bytes_list[i].get_data ();
+                    append_json_string_bytes (sb, kb);
+                    sb.append_c (':');
+                    append_value (table.get_bytes (kb));
+                }
+                sb.append_c ('}');
+            } finally {
+                leave_container (table);
+            }
         }
-        case ValueKind.LOCAL_TIME: {
-            type_name = "time-local";
-            var t = value.get_local_time ();
-            assert (t != null);
-            append_tagged (sb, type_name, format_local_time (t));
-            return;
+
+        private void append_array (Array array) throws WriteError {
+            enter_container (array);
+            try {
+                sb.append_c ('[');
+                for (int i = 0; i < array.size; i++) {
+                    if (i > 0) {
+                        sb.append_c (',');
+                    }
+                    append_value (array.get (i));
+                }
+                sb.append_c (']');
+            } finally {
+                leave_container (array);
+            }
         }
-        default:
-            assert_not_reached ();
+
+        private void append_scalar (Value value) {
+            string type_name;
+            switch (value.kind) {
+            case ValueKind.STRING:
+                type_name = "string";
+                sb.append ("{\"type\":");
+                append_json_string_text (sb, type_name);
+                sb.append (",\"value\":");
+                append_json_string_bytes (sb, value.get_string_bytes ());
+                sb.append_c ('}');
+                return;
+            case ValueKind.INTEGER:
+                type_name = "integer";
+                append_tagged (sb, type_name, value.get_integer ().to_string ());
+                return;
+            case ValueKind.FLOAT:
+                type_name = "float";
+                append_tagged (sb, type_name, encode_float (value.get_float ()));
+                return;
+            case ValueKind.BOOLEAN:
+                type_name = "bool";
+                append_tagged (sb, type_name, value.get_boolean () ? "true" : "false");
+                return;
+            case ValueKind.OFFSET_DATETIME: {
+                type_name = "datetime";
+                var dt = value.get_offset_datetime ();
+                assert (dt != null);
+                append_tagged (sb, type_name, format_offset_datetime (dt));
+                return;
+            }
+            case ValueKind.LOCAL_DATETIME: {
+                type_name = "datetime-local";
+                var ldt = value.get_local_datetime ();
+                assert (ldt != null);
+                append_tagged (sb, type_name, format_local_datetime (ldt));
+                return;
+            }
+            case ValueKind.LOCAL_DATE: {
+                type_name = "date-local";
+                var d = value.get_local_date ();
+                assert (d != null);
+                append_tagged (sb, type_name, format_local_date (d));
+                return;
+            }
+            case ValueKind.LOCAL_TIME: {
+                type_name = "time-local";
+                var t = value.get_local_time ();
+                assert (t != null);
+                append_tagged (sb, type_name, format_local_time (t));
+                return;
+            }
+            default:
+                assert_not_reached ();
+            }
         }
     }
 
