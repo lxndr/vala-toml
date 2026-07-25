@@ -5,6 +5,13 @@ namespace Toml {
      * @return true if both are null or structurally equal
      */
     public bool values_equal (Value? a, Value? b) {
+        var active = new Gee.HashSet<Value> (
+            (Gee.HashDataFunc<Value>) GLib.direct_hash,
+            (Gee.EqualDataFunc<Value>) GLib.direct_equal);
+        return values_equal_inner (a, b, active);
+    }
+
+    private bool values_equal_inner (Value? a, Value? b, Gee.HashSet<Value> active) {
         if (a == b) {
             return true;
         }
@@ -51,45 +58,65 @@ namespace Toml {
         case ValueKind.BOOLEAN:
             return a.get_boolean () == b.get_boolean ();
         case ValueKind.TABLE:
-            return tables_equal (a.as_table (), b.as_table ());
+            return tables_equal (a.as_table (), b.as_table (), active);
         case ValueKind.ARRAY:
-            return arrays_equal (a.as_array (), b.as_array ());
+            return arrays_equal (a.as_array (), b.as_array (), active);
         }
 
         return false;
     }
 
-    private bool tables_equal (Table? a, Table? b) {
+    private bool tables_equal (Table? a, Table? b, Gee.HashSet<Value> active) {
         if (a == null || b == null) {
             return a == b;
         }
-        if (a.size != b.size) {
+        if (active.contains (a) || active.contains (b)) {
             return false;
         }
-        for (int i = 0; i < a.key_bytes_list.size; i++) {
-            uint8[] kb = a.key_bytes_list[i].get_data ();
-            if (!b.has_bytes (kb)) {
+        active.add (a);
+        active.add (b);
+        try {
+            if (a.size != b.size) {
                 return false;
             }
-            if (!values_equal (a.get_bytes (kb), b.get_bytes (kb))) {
-                return false;
+            for (int i = 0; i < a.key_bytes_list.size; i++) {
+                uint8[] kb = a.key_bytes_list[i].get_data ();
+                if (!b.has_bytes (kb)) {
+                    return false;
+                }
+                if (!values_equal_inner (a.get_bytes (kb), b.get_bytes (kb), active)) {
+                    return false;
+                }
             }
+            return true;
+        } finally {
+            active.remove (a);
+            active.remove (b);
         }
-        return true;
     }
 
-    private bool arrays_equal (Array? a, Array? b) {
+    private bool arrays_equal (Array? a, Array? b, Gee.HashSet<Value> active) {
         if (a == null || b == null) {
             return a == b;
         }
-        if (a.size != b.size) {
+        if (active.contains (a) || active.contains (b)) {
             return false;
         }
-        for (int i = 0; i < a.size; i++) {
-            if (!values_equal (a.get (i), b.get (i))) {
+        active.add (a);
+        active.add (b);
+        try {
+            if (a.size != b.size) {
                 return false;
             }
+            for (int i = 0; i < a.size; i++) {
+                if (!values_equal_inner (a.get (i), b.get (i), active)) {
+                    return false;
+                }
+            }
+            return true;
+        } finally {
+            active.remove (a);
+            active.remove (b);
         }
-        return true;
     }
 }
