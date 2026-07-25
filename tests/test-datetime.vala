@@ -77,7 +77,7 @@ void test_format_offset_datetime_numeric_offset () {
     assert (Toml.format_offset_datetime (dt) == "1979-05-27T00:32:00-07:00");
 }
 
-void test_format_local_datetime_space_input_normalized_on_format_only () {
+void test_format_local_datetime_uses_T () {
     try {
         Date d = Date ();
         d.set_dmy ((DateDay) 27, DateMonth.MAY, (DateYear) 1979);
@@ -86,6 +86,12 @@ void test_format_local_datetime_space_input_normalized_on_format_only () {
     } catch (Toml.ValueError e) {
         assert_not_reached ();
     }
+}
+
+void test_format_offset_datetime_positive_offset () {
+    var tz = new TimeZone.offset ((int) (9 * TimeSpan.HOUR / TimeSpan.SECOND));
+    var dt = new DateTime (tz, 1979, 5, 27, 16, 32, 0.0);
+    assert (Toml.format_offset_datetime (dt) == "1979-05-27T16:32:00+09:00");
 }
 
 void test_parse_offset_datetime_z () {
@@ -245,7 +251,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/datetime/format_local_time_with_frac", test_format_local_time_with_frac);
     Test.add_func ("/toml/datetime/format_offset_datetime_z", test_format_offset_datetime_z);
     Test.add_func ("/toml/datetime/format_offset_datetime_numeric_offset", test_format_offset_datetime_numeric_offset);
-    Test.add_func ("/toml/datetime/format_local_datetime_space_input_normalized_on_format_only", test_format_local_datetime_space_input_normalized_on_format_only);
+    Test.add_func ("/toml/datetime/format_local_datetime_uses_T", test_format_local_datetime_uses_T);
+    Test.add_func ("/toml/datetime/format_offset_datetime_positive_offset", test_format_offset_datetime_positive_offset);
     Test.add_func ("/toml/datetime/parse_offset_datetime_z", test_parse_offset_datetime_z);
     Test.add_func ("/toml/datetime/parse_offset_datetime_space_separator", test_parse_offset_datetime_space_separator);
     Test.add_func ("/toml/datetime/parse_rejects_newline_injection", test_parse_rejects_newline_injection);

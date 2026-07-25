@@ -91,7 +91,7 @@ stdout.printf ("%s", Toml.write_string (root));
 
 ## API overview
 
-Namespace: `Toml`. Callers must handle `ParseError` / `WriteError` where thrown; examples above omit `try`/`catch`. Fuller descriptions are in gtk-doc comments under `src/`. Lexer, parser, and tagged-JSON helpers are internal.
+Namespace: `Toml`. Callers must handle `ParseError` / `WriteError` where thrown, and `ValueError` from typed datetime constructors; examples above omit `try`/`catch`. Fuller descriptions are in gtk-doc comments under `src/`. Lexer, parser, and tagged-JSON helpers are internal.
 
 ### Entry points
 

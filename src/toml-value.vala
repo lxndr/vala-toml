@@ -71,6 +71,9 @@ namespace Toml {
 
         /** Build an offset date-time value from a timezone-aware {@link DateTime}. */
         public static Value from_offset_datetime (DateTime dt) throws ValueError {
+            if (dt == null) {
+                throw new ValueError.INVALID ("offset date-time is null");
+            }
             if (dt.get_timezone () == null) {
                 throw new ValueError.INVALID ("offset date-time requires a timezone");
             }
