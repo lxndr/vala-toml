@@ -178,6 +178,18 @@ Toml.Table nest_standard_tables (int depth) {
     return root;
 }
 
+void test_write_inline_array_nesting_at_limit_ok () {
+    try {
+        var root = new Toml.Table ();
+        // root + (MAX-1) arrays = MAX enters
+        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        string s = Toml.write_string (root);
+        assert (s != null && s.has_prefix ("a = "));
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
 void test_write_inline_array_nesting_over_limit_fails () {
     var root = new Toml.Table ();
     root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
@@ -247,6 +259,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/writer/offset_datetime_canonical", test_write_offset_datetime_canonical);
     Test.add_func ("/toml/writer/f011_no_string_injection_api", test_f011_no_string_injection_api);
     Test.add_func ("/toml/writer/error_inline_table_with_aot", test_write_error_inline_table_with_aot);
+    Test.add_func ("/toml/writer/inline_array_nesting_at_limit_ok",
+        test_write_inline_array_nesting_at_limit_ok);
     Test.add_func ("/toml/writer/inline_array_nesting_over_limit_fails",
         test_write_inline_array_nesting_over_limit_fails);
     Test.add_func ("/toml/writer/standard_table_nesting_over_limit_fails",
