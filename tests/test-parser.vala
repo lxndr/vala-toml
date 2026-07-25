@@ -226,9 +226,28 @@ void test_parse_header_nesting_over_limit_fails () {
     }
 }
 
+void test_parse_dotted_nesting_at_limit_ok () {
+    try {
+        var t = Toml.parse_string (nest_dotted_assignment (Toml.MAX_VALUE_NESTING));
+        assert (t != null);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
+void test_parse_header_nesting_at_limit_ok () {
+    try {
+        var t = Toml.parse_string (nest_header_path (Toml.MAX_VALUE_NESTING));
+        assert (t != null);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
 void test_parse_array_nesting_over_limit_fails () {
     try {
-        Toml.parse_string (nest_arrays (Toml.MAX_VALUE_NESTING + 1));
+        // Root counts: MAX array hops under root reach depth MAX+1 and must fail.
+        Toml.parse_string (nest_arrays (Toml.MAX_VALUE_NESTING));
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.contains ("nesting"));
@@ -237,7 +256,7 @@ void test_parse_array_nesting_over_limit_fails () {
 
 void test_parse_inline_table_nesting_over_limit_fails () {
     try {
-        Toml.parse_string (nest_inline_tables (Toml.MAX_VALUE_NESTING + 1));
+        Toml.parse_string (nest_inline_tables (Toml.MAX_VALUE_NESTING));
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.contains ("nesting"));
@@ -266,5 +285,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/inline_table_nesting_over_limit_fails", test_parse_inline_table_nesting_over_limit_fails);
     Test.add_func ("/toml/parser/dotted_nesting_over_limit_fails", test_parse_dotted_nesting_over_limit_fails);
     Test.add_func ("/toml/parser/header_nesting_over_limit_fails", test_parse_header_nesting_over_limit_fails);
+    Test.add_func ("/toml/parser/dotted_nesting_at_limit_ok", test_parse_dotted_nesting_at_limit_ok);
+    Test.add_func ("/toml/parser/header_nesting_at_limit_ok", test_parse_header_nesting_at_limit_ok);
     return Test.run ();
 }

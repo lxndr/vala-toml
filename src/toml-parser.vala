@@ -9,7 +9,9 @@ namespace Toml {
         private Token current;
         private Table root;
         private Table current_table;
-        private int value_nesting = 0;
+        private int container_depth = 0;
+        // Absolute JSON-like depth of each table created during this parse (root = 1)
+        private Gee.HashMap<Table, int> table_depth;
         // Tables opened via [header] (final segment of a header path)
         private Gee.HashSet<Table> explicit_tables;
         // Tables created as dotted-key / key-value intermediates (cannot be reopened via [header])
@@ -39,6 +41,11 @@ namespace Toml {
 
         public Table parse () throws ParseError {
             root = new Table ();
+            table_depth = new Gee.HashMap<Table, int> (
+                (Gee.HashDataFunc<Table>) GLib.direct_hash,
+                (Gee.EqualDataFunc<Table>) GLib.direct_equal);
+            table_depth[root] = 1;
+            container_depth = 1;
             current_table = root;
             while (current.kind != TokenKind.EOF) {
                 if (current.kind == TokenKind.NEWLINE) {
@@ -76,12 +83,38 @@ namespace Toml {
             current_table = define_array_of_tables (path);
         }
 
+        private void throw_nesting_exceeded () throws ParseError {
+            throw new ParseError.FAILED (
+                format_parse_error (current.line, current.column, "maximum nesting depth exceeded"));
+        }
+
+        private void enter_container_hop () throws ParseError {
+            if (container_depth >= MAX_VALUE_NESTING) {
+                throw_nesting_exceeded ();
+            }
+            container_depth++;
+        }
+
+        private void leave_container_hop () {
+            container_depth--;
+        }
+
+        private Table create_tracked_table (Table parent) throws ParseError {
+            int pd = table_depth[parent];
+            if (pd >= MAX_VALUE_NESTING) {
+                throw_nesting_exceeded ();
+            }
+            var child = new Table ();
+            table_depth[child] = pd + 1;
+            return child;
+        }
+
         private Table resolve_header_parent (Gee.ArrayList<Bytes> path) throws ParseError {
             Table table = root;
             for (int i = 0; i < path.size - 1; i++) {
                 uint8[] key = path[i].get_data ();
                 if (!table.has_bytes (key)) {
-                    var child = new Table ();
+                    var child = create_tracked_table (table);
                     table.set_bytes_unchecked (key, child);
                     table = child;
                     continue;
@@ -123,8 +156,13 @@ namespace Toml {
         private Table define_array_of_tables (Gee.ArrayList<Bytes> path) throws ParseError {
             Table table = resolve_header_parent (path);
             uint8[] final_key = path[path.size - 1].get_data ();
+            int pd = table_depth[table];
             Array array;
             if (!table.has_bytes (final_key)) {
+                // Array hop: parent d → array at d+1
+                if (pd >= MAX_VALUE_NESTING) {
+                    throw_nesting_exceeded ();
+                }
                 array = new Array ();
                 table.set_bytes_unchecked (final_key, array);
                 aot_arrays.add (array);
@@ -141,7 +179,12 @@ namespace Toml {
                 }
                 array = as_array;
             }
+            // Element table hop: array at d+1 → element at d+2
+            if (pd + 1 >= MAX_VALUE_NESTING) {
+                throw_nesting_exceeded ();
+            }
             var child = new Table ();
+            table_depth[child] = pd + 2;
             array.add_unchecked (child);
             explicit_tables.add (child);
             return child;
@@ -156,7 +199,7 @@ namespace Toml {
 
             uint8[] final_key = path[path.size - 1].get_data ();
             if (!table.has_bytes (final_key)) {
-                var child = new Table ();
+                var child = create_tracked_table (table);
                 table.set_bytes_unchecked (final_key, child);
                 explicit_tables.add (child);
                 return child;
@@ -185,24 +228,30 @@ namespace Toml {
         private void parse_key_value (Table target) throws ParseError {
             var path = parse_key_path ();
             expect_value (TokenKind.EQUALS, "expected '='");
-            Value value = parse_value ();
-            insert_path (target, path, value);
+            int saved = container_depth;
+            // Leaf parent sits at target depth + intermediate hops; sync before value nests.
+            container_depth = table_depth[target] + (path.size - 1);
+            if (container_depth > MAX_VALUE_NESTING) {
+                throw_nesting_exceeded ();
+            }
+            try {
+                Value value = parse_value ();
+                insert_path (target, path, value);
+            } finally {
+                container_depth = saved;
+            }
         }
 
         private Value parse_value () throws ParseError {
             if (current.kind == TokenKind.LBRACKET || current.kind == TokenKind.LBRACE) {
-                if (value_nesting >= MAX_VALUE_NESTING) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, "maximum nesting depth exceeded"));
-                }
-                value_nesting++;
+                enter_container_hop ();
                 try {
                     if (current.kind == TokenKind.LBRACKET) {
                         return parse_array ();
                     }
                     return parse_inline_table ();
                 } finally {
-                    value_nesting--;
+                    leave_container_hop ();
                 }
             }
             return parse_scalar ();
@@ -236,6 +285,7 @@ namespace Toml {
         private Table parse_inline_table () throws ParseError {
             expect_key (TokenKind.LBRACE, "expected '{'");
             var table = new Table ();
+            table_depth[table] = container_depth;
             skip_newlines_key ();
             if (current.kind == TokenKind.RBRACE) {
                 advance_value ();
@@ -381,54 +431,62 @@ namespace Toml {
         }
 
         private void insert_path (Table target, Gee.ArrayList<Bytes> path, Value value) throws ParseError {
-            Table table = target;
-            for (int i = 0; i < path.size - 1; i++) {
-                uint8[] key = path[i].get_data ();
-                if (!table.has_bytes (key)) {
-                    if (table != target && explicit_tables.contains (table)) {
-                        throw new ParseError.FAILED (
-                            format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
+            int saved = container_depth;
+            container_depth = table_depth[target];
+            try {
+                Table table = target;
+                for (int i = 0; i < path.size - 1; i++) {
+                    uint8[] key = path[i].get_data ();
+                    if (!table.has_bytes (key)) {
+                        if (table != target && explicit_tables.contains (table)) {
+                            throw new ParseError.FAILED (
+                                format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
+                        }
+                        if (closed_tables.contains (table)) {
+                            throw new ParseError.FAILED (
+                                format_parse_error (current.line, current.column, "cannot extend inline table"));
+                        }
+                        var child = create_tracked_table (table);
+                        table.set_bytes_unchecked (key, child);
+                        dotted_tables.add (child);
+                        table = child;
+                        container_depth = table_depth[table];
+                        continue;
                     }
-                    if (closed_tables.contains (table)) {
+                    Value? existing = table.get_bytes (key);
+                    Table? as_table = existing.as_table ();
+                    if (as_table == null) {
+                        throw new ParseError.FAILED (
+                            format_parse_error (current.line, current.column, "duplicate key"));
+                    }
+                    if (closed_tables.contains (as_table)) {
                         throw new ParseError.FAILED (
                             format_parse_error (current.line, current.column, "cannot extend inline table"));
                     }
-                    var child = new Table ();
-                    table.set_bytes_unchecked (key, child);
-                    dotted_tables.add (child);
-                    table = child;
-                    continue;
+                    // Using an existing table as a dotted-key intermediate marks it dotted
+                    // (unless it was already opened explicitly via [header]).
+                    if (!explicit_tables.contains (as_table)) {
+                        dotted_tables.add (as_table);
+                    }
+                    table = as_table;
+                    container_depth = table_depth[table];
                 }
-                Value? existing = table.get_bytes (key);
-                Table? as_table = existing.as_table ();
-                if (as_table == null) {
+
+                // Cannot add keys into an explicit/closed table via dotted keys from outside it
+                if (table != target && (explicit_tables.contains (table) || closed_tables.contains (table))) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
+                }
+
+                uint8[] final_key = path[path.size - 1].get_data ();
+                if (table.has_bytes (final_key)) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, "duplicate key"));
                 }
-                if (closed_tables.contains (as_table)) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, "cannot extend inline table"));
-                }
-                // Using an existing table as a dotted-key intermediate marks it dotted
-                // (unless it was already opened explicitly via [header]).
-                if (!explicit_tables.contains (as_table)) {
-                    dotted_tables.add (as_table);
-                }
-                table = as_table;
+                table.set_bytes_unchecked (final_key, value);
+            } finally {
+                container_depth = saved;
             }
-
-            // Cannot add keys into an explicit/closed table via dotted keys from outside it
-            if (table != target && (explicit_tables.contains (table) || closed_tables.contains (table))) {
-                throw new ParseError.FAILED (
-                    format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
-            }
-
-            uint8[] final_key = path[path.size - 1].get_data ();
-            if (table.has_bytes (final_key)) {
-                throw new ParseError.FAILED (
-                    format_parse_error (current.line, current.column, "duplicate key"));
-            }
-            table.set_bytes_unchecked (final_key, value);
         }
 
         private void expect_key (TokenKind kind, string message) throws ParseError {
