@@ -130,6 +130,29 @@ void test_shared_table_survives_sibling_destroy () {
     }
 }
 
+/*
+ * Double-edge chain: each parent holds the same child under two keys.
+ * The old ref_count==2 rule skips every child (rc>=3), then each layer
+ * finalizes recursively when the parent clears — SIGSEGV on deep DAGs
+ * (repro: ulimit -s 256).
+ */
+void test_diamond_join_deep_destroy_ok () {
+    try {
+        var leaf = new Toml.Table ();
+        leaf.set ("v", Toml.Value.from_integer (1));
+        var cur = leaf;
+        for (int i = 0; i < Toml.MAX_VALUE_NESTING; i++) {
+            var parent = new Toml.Table ();
+            parent.set ("a", cur);
+            parent.set ("b", cur);
+            cur = parent;
+        }
+        cur = null;
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
 void test_style_inplace_mutation () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -162,5 +185,6 @@ public static int main (string[] args) {
     Test.add_func ("/toml/dom/table_array_cycle_fails", test_table_array_cycle_fails);
     Test.add_func ("/toml/dom/deep_table_destroy_ok", test_deep_table_destroy_ok);
     Test.add_func ("/toml/dom/shared_table_survives_sibling_destroy", test_shared_table_survives_sibling_destroy);
+    Test.add_func ("/toml/dom/diamond_join_deep_destroy_ok", test_diamond_join_deep_destroy_ok);
     return Test.run ();
 }

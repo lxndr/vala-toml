@@ -4,10 +4,12 @@ namespace Toml {
     internal static extern int value_peek_ref_count (Value v);
 
     /*
-     * Clear only containers exclusively owned by the dying subgraph.
-     * While the parent still holds an edge, get() adds one temporary ref:
-     * ref_count == 2 means exclusive (parent + get); > 2 means shared —
-     * leave shared nodes intact and do not recurse into them for clearing.
+     * Clear containers exclusively owned by the dying subgraph.
+     *
+     * Collect every reachable container (strong-held), count internal
+     * child-container edges among them, then treat a node as exclusive
+     * when ref_count - 1(hold) - internal_edges == 0. Nodes with live
+     * external owners are left intact. Root is always cleared.
      */
     internal void drain_container_tree (Value root) {
         var hold = new Gee.ArrayList<Value> ();
@@ -16,69 +18,122 @@ namespace Toml {
             (Gee.HashDataFunc<unowned Value>) GLib.direct_hash,
             (Gee.EqualDataFunc<unowned Value>) GLib.direct_equal);
         seen.add (root);
-        drain_enqueue_children (root, hold, queue, seen);
+        // Dying root is already at ref_count 0 in finalize — do not hold it.
+        if (value_peek_ref_count (root) > 0) {
+            hold.add (root);
+        }
+        drain_collect_children (root, hold, queue, seen);
         while (queue.size > 0) {
             var cur = queue.remove_at (0);
-            drain_enqueue_children (cur, hold, queue, seen);
+            drain_collect_children (cur, hold, queue, seen);
         }
+
+        var edge_count = new Gee.HashMap<unowned Value, int> (
+            (Gee.HashDataFunc<unowned Value>) GLib.direct_hash,
+            (Gee.EqualDataFunc<unowned Value>) GLib.direct_equal);
+        drain_count_edges_from (root, seen, edge_count);
         foreach (var cur in hold) {
-            unowned Table? table = cur as Table;
-            if (table != null) {
-                table.clear_entries_for_dispose ();
+            if (cur == root) {
                 continue;
             }
-            unowned Array? array = cur as Array;
-            if (array != null) {
-                array.clear_items_for_dispose ();
+            drain_count_edges_from (cur, seen, edge_count);
+        }
+
+        foreach (var cur in hold) {
+            if (cur == root) {
+                continue;
+            }
+            int edges = 0;
+            if (edge_count.has_key (cur)) {
+                edges = edge_count[cur];
+            }
+            int external = value_peek_ref_count (cur) - 1 - edges;
+            if (external == 0) {
+                drain_clear_container (cur);
             }
         }
-        unowned Table? root_table = root as Table;
-        if (root_table != null) {
-            root_table.clear_entries_for_dispose ();
-        } else {
-            unowned Array? root_array = root as Array;
-            if (root_array != null) {
-                root_array.clear_items_for_dispose ();
-            }
+        drain_clear_container (root);
+    }
+
+    private void drain_clear_container (Value node) {
+        // Use unowned casts: root is already at ref_count 0 in finalize; an
+        // owned `as` would ref/unref and re-enter finalize mid-drain.
+        unowned Table? table = node as Table;
+        if (table != null) {
+            table.clear_entries_for_dispose ();
+            return;
+        }
+        unowned Array? array = node as Array;
+        if (array != null) {
+            array.clear_items_for_dispose ();
         }
     }
 
-    private void drain_consider_child (Value? child,
-                                       Gee.ArrayList<Value> hold,
-                                       Gee.ArrayList<Value> queue,
-                                       Gee.HashSet<unowned Value> seen) {
+    private void drain_collect_child (Value? child,
+                                      Gee.ArrayList<Value> hold,
+                                      Gee.ArrayList<Value> queue,
+                                      Gee.HashSet<unowned Value> seen) {
         if (child == null || !(child is Table || child is Array)) {
             return;
         }
         if (!seen.add (child)) {
             return;
         }
-        // parent edge + owned get() temporary ⇒ exclusive iff 2
-        if (value_peek_ref_count (child) != 2) {
-            return;
-        }
         hold.add (child);
         queue.add (child);
     }
 
-    private void drain_enqueue_children (Value cur,
+    private void drain_collect_children (Value cur,
                                          Gee.ArrayList<Value> hold,
                                          Gee.ArrayList<Value> queue,
                                          Gee.HashSet<unowned Value> seen) {
-        // Use unowned casts: root is already at ref_count 0 in finalize; an
-        // owned `as` would ref/unref and re-enter finalize mid-drain.
         unowned Table? table = cur as Table;
         if (table != null) {
             foreach (var key_bytes in table.key_bytes_list) {
-                drain_consider_child (table.get_bytes (key_bytes.get_data ()),
-                                      hold, queue, seen);
+                drain_collect_child (table.get_bytes (key_bytes.get_data ()),
+                                     hold, queue, seen);
             }
             return;
         }
         unowned Array? array = cur as Array;
         if (array != null) {
             for (int i = 0; i < array.size; i++) {
-                drain_consider_child (array.get (i), hold, queue, seen);
+                drain_collect_child (array.get (i), hold, queue, seen);
+            }
+        }
+    }
+
+    private void drain_count_child_edge (Value? child,
+                                         Gee.HashSet<unowned Value> seen,
+                                         Gee.HashMap<unowned Value, int> edge_count) {
+        if (child == null || !(child is Table || child is Array)) {
+            return;
+        }
+        if (!seen.contains (child)) {
+            return;
+        }
+        int n = 0;
+        if (edge_count.has_key (child)) {
+            n = edge_count[child];
+        }
+        edge_count[child] = n + 1;
+    }
+
+    private void drain_count_edges_from (Value cur,
+                                         Gee.HashSet<unowned Value> seen,
+                                         Gee.HashMap<unowned Value, int> edge_count) {
+        unowned Table? table = cur as Table;
+        if (table != null) {
+            foreach (var key_bytes in table.key_bytes_list) {
+                drain_count_child_edge (table.get_bytes (key_bytes.get_data ()),
+                                        seen, edge_count);
+            }
+            return;
+        }
+        unowned Array? array = cur as Array;
+        if (array != null) {
+            for (int i = 0; i < array.size; i++) {
+                drain_count_child_edge (array.get (i), seen, edge_count);
             }
         }
     }
