@@ -53,6 +53,51 @@ void test_nested_table () {
     assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
 }
 
+void test_table_set_self_cycle_fails () {
+    var t = new Toml.Table ();
+    try {
+        t.set ("x", t);
+        assert_not_reached ();
+    } catch (Toml.ValueError e) {
+        assert (e.message != null && e.message.contains ("cyclic"));
+    }
+}
+
+void test_table_array_cycle_fails () {
+    var t = new Toml.Table ();
+    var a = new Toml.Array ();
+    try {
+        t.set ("a", a);
+        a.add (t);
+        assert_not_reached ();
+    } catch (Toml.ValueError e) {
+        assert (e.message != null && e.message.contains ("cyclic"));
+    }
+}
+
+Toml.Table nest_standard_tables (int depth) throws Toml.ValueError {
+    var leaf = new Toml.Table ();
+    leaf.set ("v", Toml.Value.from_integer (1));
+    var cur = leaf;
+    for (int i = 0; i < depth - 1; i++) {
+        var parent = new Toml.Table ();
+        parent.set ("t", cur);
+        cur = parent;
+    }
+    var root = new Toml.Table ();
+    root.set ("t", cur);
+    return root;
+}
+
+void test_deep_table_destroy_ok () {
+    try {
+        var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
+        root = null;
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
 void test_style_inplace_mutation () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -81,5 +126,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/array_basic", test_array_basic);
     Test.add_func ("/toml/nested_table", test_nested_table);
     Test.add_func ("/toml/style_inplace_mutation", test_style_inplace_mutation);
+    Test.add_func ("/toml/dom/table_set_self_cycle_fails", test_table_set_self_cycle_fails);
+    Test.add_func ("/toml/dom/table_array_cycle_fails", test_table_array_cycle_fails);
+    Test.add_func ("/toml/dom/deep_table_destroy_ok", test_deep_table_destroy_ok);
     return Test.run ();
 }

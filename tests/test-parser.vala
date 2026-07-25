@@ -174,6 +174,58 @@ string nest_inline_tables (int depth) {
     return sb.str;
 }
 
+string nest_dotted_assignment (int depth) {
+    // depth container hops from root inclusive along tables; scalar leaf.
+    // depth==1 → "a = 1\n" (only root + scalar; no nested table)
+    // depth>=2 → (depth-1) dotted prefixes + final key
+    if (depth < 2) {
+        return "a = 1\n";
+    }
+    var sb = new StringBuilder ();
+    for (int i = 0; i < depth - 1; i++) {
+        if (i > 0) {
+            sb.append (".");
+        }
+        sb.append ("a");
+    }
+    sb.append (".z = 1\n");
+    return sb.str;
+}
+
+string nest_header_path (int depth) {
+    // [a.a.…] with (depth-1) segments then z, plus z key — pin to same container depth as dotted
+    if (depth < 2) {
+        return "[a]\nx = 1\n";
+    }
+    var sb = new StringBuilder ("[");
+    for (int i = 0; i < depth - 1; i++) {
+        if (i > 0) {
+            sb.append (".");
+        }
+        sb.append ("a");
+    }
+    sb.append ("]\nx = 1\n");
+    return sb.str;
+}
+
+void test_parse_dotted_nesting_over_limit_fails () {
+    try {
+        Toml.parse_string (nest_dotted_assignment (Toml.MAX_VALUE_NESTING + 1));
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
+void test_parse_header_nesting_over_limit_fails () {
+    try {
+        Toml.parse_string (nest_header_path (Toml.MAX_VALUE_NESTING + 1));
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
 void test_parse_array_nesting_over_limit_fails () {
     try {
         Toml.parse_string (nest_arrays (Toml.MAX_VALUE_NESTING + 1));
@@ -212,5 +264,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/array_of_tables", test_parse_array_of_tables);
     Test.add_func ("/toml/parser/array_nesting_over_limit_fails", test_parse_array_nesting_over_limit_fails);
     Test.add_func ("/toml/parser/inline_table_nesting_over_limit_fails", test_parse_inline_table_nesting_over_limit_fails);
+    Test.add_func ("/toml/parser/dotted_nesting_over_limit_fails", test_parse_dotted_nesting_over_limit_fails);
+    Test.add_func ("/toml/parser/header_nesting_over_limit_fails", test_parse_header_nesting_over_limit_fails);
     return Test.run ();
 }
