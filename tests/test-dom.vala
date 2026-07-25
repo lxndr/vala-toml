@@ -3,9 +3,7 @@ void test_parse_error_message () {
         throw new Toml.ParseError.FAILED ("1:5: unexpected token");
     } catch (Toml.ParseError e) {
         assert (e.message.contains ("1:5:"));
-        return;
     }
-    assert_not_reached ();
 }
 
 void test_style_defaults () {

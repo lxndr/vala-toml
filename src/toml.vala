@@ -92,8 +92,7 @@ namespace Toml {
         if (data.length == 0) {
             return;
         }
-        char* end;
-        if (!((string) data).validate (data.length, out end)) {
+        if (!((string) data).validate (data.length)) {
             throw new ParseError.FAILED ("invalid UTF-8");
         }
         int i = 0;

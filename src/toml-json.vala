@@ -432,11 +432,6 @@ namespace Toml {
             return result;
         }
 
-        private string parse_string_text () throws Error {
-            uint8[] bytes = parse_string_bytes ();
-            return Value.string_from_bytes (bytes);
-        }
-
         private uint8[] parse_string_bytes () throws Error {
             expect ('"');
             var buf = new StringBuilder ();

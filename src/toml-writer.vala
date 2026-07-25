@@ -162,10 +162,6 @@ namespace Toml {
             return next;
         }
 
-        private void emit_key (string key) {
-            emit_key_bytes (key.data);
-        }
-
         private void emit_key_bytes (uint8[] key) {
             if (is_bare_key_bytes (key)) {
                 buf.append_len ((string) key, key.length);

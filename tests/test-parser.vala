@@ -42,8 +42,6 @@ void test_parse_dotted_key_then_header_fails () {
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.length > 0);
-    } catch (Error e) {
-        error ("%s", e.message);
     }
 }
 
@@ -53,8 +51,6 @@ void test_parse_value_then_header_fails () {
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.length > 0);
-    } catch (Error e) {
-        error ("%s", e.message);
     }
 }
 
@@ -83,8 +79,6 @@ void test_parse_duplicate_key_fails () {
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.length > 0);
-    } catch (Error e) {
-        error ("%s", e.message);
     }
 }
 
@@ -123,8 +117,6 @@ void test_parse_signed_integer_key_fails () {
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.length > 0);
-    } catch (Error e) {
-        error ("%s", e.message);
     }
 }
 

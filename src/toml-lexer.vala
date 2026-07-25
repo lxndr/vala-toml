@@ -20,7 +20,7 @@ namespace Toml {
         public Token next () throws ParseError {
             skip_whitespace_and_comments ();
             if (pos >= length) {
-                return new Token (TokenKind.EOF, "", line, column);
+                return Token (TokenKind.EOF, "", line, column);
             }
 
             int start_line = line;
@@ -29,7 +29,7 @@ namespace Toml {
 
             if (c == '\n') {
                 advance ();
-                return new Token (TokenKind.NEWLINE, "\n", start_line, start_column);
+                return Token (TokenKind.NEWLINE, "\n", start_line, start_column);
             }
             if (c == '\r') {
                 // Bare CR is not a valid newline; only CRLF is accepted.
@@ -39,45 +39,45 @@ namespace Toml {
                 }
                 advance ();
                 advance ();
-                return new Token (TokenKind.NEWLINE, "\n", start_line, start_column);
+                return Token (TokenKind.NEWLINE, "\n", start_line, start_column);
             }
 
             if (c == '=') {
                 advance ();
-                return new Token (TokenKind.EQUALS, "=", start_line, start_column);
+                return Token (TokenKind.EQUALS, "=", start_line, start_column);
             }
             if (c == '.') {
                 advance ();
-                return new Token (TokenKind.DOT, ".", start_line, start_column);
+                return Token (TokenKind.DOT, ".", start_line, start_column);
             }
             if (c == ',') {
                 advance ();
-                return new Token (TokenKind.COMMA, ",", start_line, start_column);
+                return Token (TokenKind.COMMA, ",", start_line, start_column);
             }
             if (c == '{') {
                 advance ();
-                return new Token (TokenKind.LBRACE, "{", start_line, start_column);
+                return Token (TokenKind.LBRACE, "{", start_line, start_column);
             }
             if (c == '}') {
                 advance ();
-                return new Token (TokenKind.RBRACE, "}", start_line, start_column);
+                return Token (TokenKind.RBRACE, "}", start_line, start_column);
             }
             if (c == '[') {
                 advance ();
                 // Only combine [[ in key/header mode so nested value arrays keep single brackets.
                 if (key_mode && pos < length && peek () == '[') {
                     advance ();
-                    return new Token (TokenKind.DOUBLE_LBRACKET, "[[", start_line, start_column);
+                    return Token (TokenKind.DOUBLE_LBRACKET, "[[", start_line, start_column);
                 }
-                return new Token (TokenKind.LBRACKET, "[", start_line, start_column);
+                return Token (TokenKind.LBRACKET, "[", start_line, start_column);
             }
             if (c == ']') {
                 advance ();
                 if (key_mode && pos < length && peek () == ']') {
                     advance ();
-                    return new Token (TokenKind.DOUBLE_RBRACKET, "]]", start_line, start_column);
+                    return Token (TokenKind.DOUBLE_RBRACKET, "]]", start_line, start_column);
                 }
-                return new Token (TokenKind.RBRACKET, "]", start_line, start_column);
+                return Token (TokenKind.RBRACKET, "]", start_line, start_column);
             }
 
             if (c == '"' || c == '\'') {
@@ -169,7 +169,7 @@ namespace Toml {
 
         private Token token_from_builder (StringBuilder buf, int start_line, int start_column) {
             uint8[] bytes = buf.data[0:buf.len];
-            return new Token.with_bytes (TokenKind.STRING, bytes, start_line, start_column);
+            return Token.with_bytes (TokenKind.STRING, bytes, start_line, start_column);
         }
 
         private Token scan_bare_key (int start_line, int start_column) {
@@ -178,7 +178,7 @@ namespace Toml {
                 advance ();
             }
             string text = input.substring (start, pos - start);
-            return new Token (TokenKind.KEY, text, start_line, start_column);
+            return Token (TokenKind.KEY, text, start_line, start_column);
         }
 
         private Token scan_basic_string (int start_line, int start_column) throws ParseError {
@@ -482,12 +482,12 @@ namespace Toml {
             string text = input.substring (start, pos - start);
 
             if (text == "true" || text == "false") {
-                return new Token (TokenKind.BOOLEAN, text, start_line, start_column);
+                return Token (TokenKind.BOOLEAN, text, start_line, start_column);
             }
             if (text == "inf" || text == "nan") {
-                return new Token (TokenKind.FLOAT, text, start_line, start_column);
+                return Token (TokenKind.FLOAT, text, start_line, start_column);
             }
-            return new Token (TokenKind.KEY, text, start_line, start_column);
+            return Token (TokenKind.KEY, text, start_line, start_column);
         }
 
         private Token scan_number_or_datetime (int start_line, int start_column) throws ParseError {
@@ -511,7 +511,7 @@ namespace Toml {
                 string text = input.substring (start, pos - start);
                 string body = signed ? text.substring (1) : text;
                 if (body == "inf" || body == "nan") {
-                    return new Token (TokenKind.FLOAT, text, start_line, start_column);
+                    return Token (TokenKind.FLOAT, text, start_line, start_column);
                 }
                 throw new ParseError.FAILED (
                     format_parse_error (start_line, start_column, "invalid number"));
@@ -600,9 +600,9 @@ namespace Toml {
 
             string text = input.substring (start, pos - start);
             if (is_float) {
-                return new Token (TokenKind.FLOAT, text, start_line, start_column);
+                return Token (TokenKind.FLOAT, text, start_line, start_column);
             }
-            return new Token (TokenKind.INTEGER, text, start_line, start_column);
+            return Token (TokenKind.INTEGER, text, start_line, start_column);
         }
 
         // Try TOML 1.1 date/time from `start` (current pos is after the leading digit run).
@@ -630,7 +630,7 @@ namespace Toml {
                 }
                 validate_time_parts (hour, minute, second, start_line, start_column);
                 string text = input.substring (start, pos - start);
-                return new Token (TokenKind.TIME_LOCAL, text, start_line, start_column);
+                return Token (TokenKind.TIME_LOCAL, text, start_line, start_column);
             }
 
             // Date: YYYY-MM-DD [time [offset]]
@@ -667,10 +667,10 @@ namespace Toml {
                                     format_parse_error (start_line, start_column, "invalid datetime offset"));
                             }
                             string text = input.substring (start, pos - start);
-                            return new Token (TokenKind.DATETIME, text, start_line, start_column);
+                            return Token (TokenKind.DATETIME, text, start_line, start_column);
                         }
                         string text = input.substring (start, pos - start);
-                        return new Token (TokenKind.DATETIME_LOCAL, text, start_line, start_column);
+                        return Token (TokenKind.DATETIME_LOCAL, text, start_line, start_column);
                     }
                     // Separator was not followed by a valid time (e.g. space before comment)
                     pos = after_date;
@@ -682,7 +682,7 @@ namespace Toml {
                 }
 
                 string text = input.substring (start, pos - start);
-                return new Token (TokenKind.DATE_LOCAL, text, start_line, start_column);
+                return Token (TokenKind.DATE_LOCAL, text, start_line, start_column);
             }
 
             return null;
@@ -878,7 +878,7 @@ namespace Toml {
                     format_parse_error (start_line, start_column, "trailing underscore in number"));
             }
             string text = input.substring (start, pos - start);
-            return new Token (TokenKind.INTEGER, text, start_line, start_column);
+            return Token (TokenKind.INTEGER, text, start_line, start_column);
         }
 
         private bool scan_decimal_digits () {
