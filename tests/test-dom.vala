@@ -110,6 +110,26 @@ void test_deep_table_destroy_ok () {
     }
 }
 
+void test_shared_table_survives_sibling_destroy () {
+    try {
+        var shared = new Toml.Table ();
+        shared.set ("keep", Toml.Value.from_integer (42));
+
+        var dying = new Toml.Table ();
+        dying.set ("shared", shared);
+
+        var live = new Toml.Table ();
+        live.set ("shared", shared);
+
+        dying = null;
+
+        assert (live.get ("shared").as_table ().get ("keep").get_integer () == 42);
+        assert (shared.get ("keep").get_integer () == 42);
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
 void test_style_inplace_mutation () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -141,5 +161,6 @@ public static int main (string[] args) {
     Test.add_func ("/toml/dom/table_set_self_cycle_fails", test_table_set_self_cycle_fails);
     Test.add_func ("/toml/dom/table_array_cycle_fails", test_table_array_cycle_fails);
     Test.add_func ("/toml/dom/deep_table_destroy_ok", test_deep_table_destroy_ok);
+    Test.add_func ("/toml/dom/shared_table_survives_sibling_destroy", test_shared_table_survives_sibling_destroy);
     return Test.run ();
 }

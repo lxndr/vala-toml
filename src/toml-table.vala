@@ -1,4 +1,14 @@
 namespace Toml {
+    // Reads TomlValue.ref_count without taking an extra strong ref.
+    [CCode (cname = "toml_value_peek_ref_count")]
+    internal static extern int value_peek_ref_count (Value v);
+
+    /*
+     * Clear only containers exclusively owned by the dying subgraph.
+     * While the parent still holds an edge, get() adds one temporary ref:
+     * ref_count == 2 means exclusive (parent + get); > 2 means shared —
+     * leave shared nodes intact and do not recurse into them for clearing.
+     */
     internal void drain_container_tree (Value root) {
         var hold = new Gee.ArrayList<Value> ();
         var queue = new Gee.ArrayList<Value> ();
@@ -6,51 +16,23 @@ namespace Toml {
             (Gee.HashDataFunc<unowned Value>) GLib.direct_hash,
             (Gee.EqualDataFunc<unowned Value>) GLib.direct_equal);
         seen.add (root);
-        unowned Table? root_table = root as Table;
-        if (root_table != null) {
-            foreach (var key_bytes in root_table.key_bytes_list) {
-                Value? child = root_table.get_bytes (key_bytes.get_data ());
-                if (child is Table || child is Array) {
-                    queue.add (child);
-                }
-            }
-        } else {
-            unowned Array? root_array = root as Array;
-            if (root_array != null) {
-                for (int i = 0; i < root_array.size; i++) {
-                    Value child = root_array.get (i);
-                    if (child is Table || child is Array) {
-                        queue.add (child);
-                    }
-                }
-            }
-        }
+        drain_enqueue_children (root, hold, queue, seen);
         while (queue.size > 0) {
             var cur = queue.remove_at (0);
-            if (!seen.add (cur)) {
-                continue;
-            }
-            hold.add (cur);
-            var table = cur as Table;
+            drain_enqueue_children (cur, hold, queue, seen);
+        }
+        foreach (var cur in hold) {
+            unowned Table? table = cur as Table;
             if (table != null) {
-                foreach (var key_bytes in table.key_bytes_list) {
-                    Value? child = table.get_bytes (key_bytes.get_data ());
-                    if (child is Table || child is Array) {
-                        queue.add (child);
-                    }
-                }
+                table.clear_entries_for_dispose ();
                 continue;
             }
-            var array = cur as Array;
+            unowned Array? array = cur as Array;
             if (array != null) {
-                for (int i = 0; i < array.size; i++) {
-                    Value child = array.get (i);
-                    if (child is Table || child is Array) {
-                        queue.add (child);
-                    }
-                }
+                array.clear_items_for_dispose ();
             }
         }
+        unowned Table? root_table = root as Table;
         if (root_table != null) {
             root_table.clear_entries_for_dispose ();
         } else {
@@ -59,15 +41,44 @@ namespace Toml {
                 root_array.clear_items_for_dispose ();
             }
         }
-        foreach (var cur in hold) {
-            var table = cur as Table;
-            if (table != null) {
-                table.clear_entries_for_dispose ();
-                continue;
+    }
+
+    private void drain_consider_child (Value? child,
+                                       Gee.ArrayList<Value> hold,
+                                       Gee.ArrayList<Value> queue,
+                                       Gee.HashSet<unowned Value> seen) {
+        if (child == null || !(child is Table || child is Array)) {
+            return;
+        }
+        if (!seen.add (child)) {
+            return;
+        }
+        // parent edge + owned get() temporary ⇒ exclusive iff 2
+        if (value_peek_ref_count (child) != 2) {
+            return;
+        }
+        hold.add (child);
+        queue.add (child);
+    }
+
+    private void drain_enqueue_children (Value cur,
+                                         Gee.ArrayList<Value> hold,
+                                         Gee.ArrayList<Value> queue,
+                                         Gee.HashSet<unowned Value> seen) {
+        // Use unowned casts: root is already at ref_count 0 in finalize; an
+        // owned `as` would ref/unref and re-enter finalize mid-drain.
+        unowned Table? table = cur as Table;
+        if (table != null) {
+            foreach (var key_bytes in table.key_bytes_list) {
+                drain_consider_child (table.get_bytes (key_bytes.get_data ()),
+                                      hold, queue, seen);
             }
-            var array = cur as Array;
-            if (array != null) {
-                array.clear_items_for_dispose ();
+            return;
+        }
+        unowned Array? array = cur as Array;
+        if (array != null) {
+            for (int i = 0; i < array.size; i++) {
+                drain_consider_child (array.get (i), hold, queue, seen);
             }
         }
     }
