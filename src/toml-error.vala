@@ -13,6 +13,13 @@ namespace Toml {
         FAILED
     }
 
+    /**
+     * Error raised when constructing an invalid typed Value payload.
+     */
+    public errordomain ValueError {
+        INVALID
+    }
+
     internal string format_parse_error (int line, int column, string message) {
         return "%d:%d: %s".printf (line, column, message);
     }

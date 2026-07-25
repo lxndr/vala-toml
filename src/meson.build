@@ -1,6 +1,7 @@
 vala_toml_sources = files(
   'toml.vala',
   'toml-error.vala',
+  'toml-datetime.vala',
   'toml-style.vala',
   'toml-value.vala',
   'toml-table.vala',

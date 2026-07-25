@@ -51,3 +51,12 @@ test_json = executable(
 )
 
 test('json', test_json)
+
+test_datetime = executable(
+  'test-datetime',
+  'test-datetime.vala',
+  dependencies: vala_toml_internal_dep,
+  vala_args: ['--pkg', 'gee-0.8'],
+)
+
+test('datetime', test_datetime)
