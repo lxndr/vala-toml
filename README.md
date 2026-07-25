@@ -2,21 +2,6 @@
 
 Vala library for TOML 1.1: parse into a DOM, mutate values and structure, and emit valid TOML.
 
-## Dependencies
-
-- `vala`
-- `meson` (>= 1.0.0)
-- `glib` (GLib / GObject / GIO)
-- `gee-0.8`
-- `go` (optional, for installing `toml-test`)
-
-## Build
-
-```bash
-meson setup build
-meson compile -C build
-```
-
 ## Use as Meson subproject
 
 Create `subprojects/vala-toml.wrap` in your project (the filename must match the Meson project name):
@@ -48,13 +33,138 @@ executable(
 
 This links a **static** library built inside the parent's build tree. There is no system install, `.pc` file, or hand-managed `.vapi` — Meson wires the generated VAPI through `vala_toml_dep`.
 
+## Usage
+
+Parse, read, mutate, and write:
+
+```vala
+var table = Toml.parse_string ("a = 1\n");
+assert (table.get ("a").get_integer () == 1);
+
+table.set ("a", Toml.Value.from_integer (2));
+table.set ("name", Toml.Value.from_string ("hi"));
+stdout.printf ("%s", Toml.write_string (table));
+```
+
+Nested tables and arrays:
+
+```vala
+var root = new Toml.Table ();
+var child = new Toml.Table ();
+child.set ("x", Toml.Value.from_integer (9));
+root.set ("child", child);
+
+var nums = new Toml.Array ();
+nums.add (Toml.Value.from_integer (1));
+nums.add (Toml.Value.from_integer (2));
+root.set ("nums", nums);
+
+assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
+assert (root.get ("nums").as_array ().get (0).get_integer () == 1);
+stdout.printf ("%s", Toml.write_string (root));
+```
+
+Style hints for emission:
+
+```vala
+var root = new Toml.Table ();
+
+var point = new Toml.Table ();
+point.style.inline = true;
+point.set ("x", Toml.Value.from_integer (1));
+point.set ("y", Toml.Value.from_integer (2));
+root.set ("point", point);
+
+var nums = new Toml.Array ();
+nums.style.multiline = true;
+nums.add (Toml.Value.from_integer (1));
+nums.add (Toml.Value.from_integer (2));
+root.set ("nums", nums);
+
+var nested = new Toml.Table ();
+nested.style.dotted_keys = true;
+nested.set ("leaf", Toml.Value.from_integer (1));
+root.set ("path", nested);
+
+stdout.printf ("%s", Toml.write_string (root));
+```
+
+## API overview
+
+Namespace: `Toml`. Callers must handle `ParseError` / `WriteError` where thrown; examples above omit `try`/`catch`. Fuller descriptions are in gtk-doc comments under `src/`. Lexer, parser, and tagged-JSON helpers are internal.
+
+### Entry points
+
+- `parse_string (string text)` → `Table` — parse UTF-8 TOML text
+- `parse_bytes (uint8[] data)` → `Table` — parse UTF-8 bytes
+- `parse (InputStream stream)` → `Table` — read stream and parse
+- `write_string (Table root, WriteOptions? options = null)` → `string` — serialize to TOML text
+- `write (Table root, OutputStream stream, WriteOptions? options = null)` — serialize to a stream
+
+### Errors
+
+- `ParseError.FAILED` — invalid TOML or parse I/O failure
+- `WriteError.FAILED` — emission or write I/O failure
+
+### ValueKind
+
+`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `DATETIME`, `DATETIME_LOCAL`, `DATE_LOCAL`, `TIME_LOCAL`, `TABLE`, `ARRAY`
+
+### Value
+
+- `kind` — runtime `ValueKind`
+- `from_string` / `from_string_bytes` — string value
+- `from_integer` / `from_float` / `from_boolean` — scalar values
+- `from_datetime` / `from_datetime_local` / `from_date_local` / `from_time_local` — date-time-like from lexical form
+- `get_string` / `get_string_bytes` — string payload or null
+- `get_integer` / `get_float` / `get_boolean` — typed payload or null
+- `get_raw` / `get_raw_bytes` — lexical form for string/date-time-like kinds
+- `as_table` / `as_array` — downcast or null
+
+### Table
+
+- `Table ()` — empty table; `style` (`TableStyle`); `size`; `keys` (insertion order)
+- `set` / `set_bytes` — set key
+- `get` / `get_bytes` — get value or null
+- `unset` — remove key; `has` / `has_bytes` — key presence
+
+### Array
+
+- `Array ()` — empty array; `style` (`ArrayStyle`); `size`; `iterator ()`
+- `add` — append; `get` / `set` — element by index
+
+### Styles
+
+- `TableStyle` — `inline`, `dotted_keys`, `multiline`, `indent` (−1 = use `WriteOptions.indent`)
+- `ArrayStyle` — `inline`, `multiline`, `indent` (−1 = use `WriteOptions.indent`)
+- `WriteOptions` — `indent` (default 2)
+
+### Equality
+
+- `values_equal (Value? a, Value? b)` — deep structural equality
+
+## Dependencies
+
+- `vala`
+- `meson` (>= 1.0.0)
+- `glib` (GLib / GObject / GIO)
+- `gee-0.8`
+- `go` (optional, for installing `toml-test`)
+
+## Build
+
+```bash
+meson setup build
+meson compile -C build
+```
+
 ## Test
 
 ```bash
 meson test -C build --print-errorlogs
 ```
 
-## toml-test (TOML 1.1)
+### toml-test (TOML 1.1)
 
 Pinned runner: **toml-test v2.2.0** (`github.com/toml-lang/toml-test/v2/cmd/toml-test@v2.2.0`).
 
@@ -73,13 +183,4 @@ Or use the helper (installs the pinned `toml-test` if missing, then runs decoder
 
 ```bash
 ./scripts/run-toml-test.sh
-```
-
-## Minimal API
-
-```vala
-var table = Toml.parse_string ("a = 1\n");
-table.get ("a"); // Value
-table.style.inline = false;
-stdout.printf ("%s", Toml.write_string (table));
 ```
