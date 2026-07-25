@@ -80,6 +80,27 @@ void test_json_encode_nesting_over_limit_fails () {
     }
 }
 
+void test_json_decode_nesting_at_limit_ok () {
+    try {
+        var t = Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_NESTING));
+        assert (t != null);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
+void test_json_encode_nesting_at_limit_ok () {
+    try {
+        var root = new Toml.Table ();
+        // root + (MAX-1) arrays = MAX enters
+        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        string json = Toml.table_to_tagged_json (root);
+        assert (json != null && json.has_prefix ("{"));
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
 void test_json_encode_cyclic_dom_fails () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -107,5 +128,9 @@ public static int main (string[] args) {
         test_json_encode_nesting_over_limit_fails);
     Test.add_func ("/toml/json/encode_cyclic_dom_fails",
         test_json_encode_cyclic_dom_fails);
+    Test.add_func ("/toml/json/decode_nesting_at_limit_ok",
+        test_json_decode_nesting_at_limit_ok);
+    Test.add_func ("/toml/json/encode_nesting_at_limit_ok",
+        test_json_encode_nesting_at_limit_ok);
     return Test.run ();
 }
