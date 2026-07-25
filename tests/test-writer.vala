@@ -7,7 +7,7 @@ void test_write_simple () {
         assert (s.contains ("a = 1"));
         assert (s.contains ("b = \"x\""));
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -21,7 +21,7 @@ void test_write_nested_standard_table () {
         assert (s.contains ("[foo]"));
         assert (s.contains ("bar = 1"));
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -35,7 +35,7 @@ void test_write_inline_table () {
         root.set ("point", point);
         assert (Toml.write_string (root) == "point = { x = 1, y = 2 }\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -51,7 +51,7 @@ void test_write_multiline_inline_table () {
         // indent from WriteOptions default (2); no trailing comma
         assert (Toml.write_string (root) == "point = {\n  x = 1,\n  y = 2\n}\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -65,7 +65,7 @@ void test_write_array_multiline () {
         root.set ("nums", nums);
         assert (Toml.write_string (root) == "nums = [\n  1,\n  2\n]\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -79,7 +79,7 @@ void test_write_multiline_indent_override () {
         root.set ("nums", nums);
         assert (Toml.write_string (root) == "nums = [\n    1\n]\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -94,7 +94,7 @@ void test_write_aot_standard () {
         var s = Toml.write_string (root);
         assert (s == "[[products]]\nname = \"A\"\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -110,7 +110,7 @@ void test_write_aot_inline () {
         root.set ("products", products);
         assert (Toml.write_string (root) == "products = [ { name = \"A\" } ]\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -123,7 +123,7 @@ void test_write_dotted_keys () {
         root.set ("a", a);
         assert (Toml.write_string (root) == "a.b = 1\n");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 

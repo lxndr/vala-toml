@@ -4,7 +4,7 @@ void test_parse_simple_pair () {
         assert (t.get ("a").get_integer () == 1);
         assert (t.get ("b").get_string () == "hi");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -14,7 +14,7 @@ void test_parse_bool_float () {
         assert (t.get ("ok").get_boolean () == true);
         assert (t.get ("n").kind == Toml.ValueKind.FLOAT);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -23,7 +23,7 @@ void test_parse_standard_table () {
         var t = Toml.parse_string ("[foo]\nbar = 1\n");
         assert (t.get ("foo").as_table ().get ("bar").get_integer () == 1);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -32,7 +32,7 @@ void test_parse_dotted_key () {
         var t = Toml.parse_string ("a.b.c = 1\n");
         assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -59,7 +59,7 @@ void test_parse_header_then_dotted_key () {
         var t = Toml.parse_string ("[a]\nb.c = 1\n");
         assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -69,7 +69,7 @@ void test_parse_header_implicit_reopen () {
         assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
         assert (t.get ("a").as_table ().get ("d").get_integer () == 2);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -89,7 +89,7 @@ void test_parse_input_stream () {
         var t = Toml.parse (stream);
         assert (t.get ("k").get_integer () == 42);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -98,7 +98,7 @@ void test_parse_numeric_bare_key () {
         var t = Toml.parse_string ("123 = 1\n");
         assert (t.get ("123").get_integer () == 1);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -107,7 +107,7 @@ void test_parse_date_shaped_bare_key () {
         var t = Toml.parse_string ("1979-05-27 = 1\n");
         assert (t.get ("1979-05-27").get_integer () == 1);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -127,7 +127,7 @@ void test_parse_array () {
         assert (a.size == 3);
         assert (!a.style.multiline);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -138,7 +138,7 @@ void test_parse_inline_table_neutral_style () {
         assert (p.get ("x").get_integer () == 1);
         assert (!p.style.inline);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -151,7 +151,44 @@ void test_parse_array_of_tables () {
         assert (a.get (1).as_table ().get ("name").get_string () == "B");
         assert (!a.style.inline);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
+    }
+}
+
+string nest_arrays (int depth) {
+    var open = string.nfill (depth, '[');
+    var close = string.nfill (depth, ']');
+    return "a = %s%s\n".printf (open, close);
+}
+
+string nest_inline_tables (int depth) {
+    var sb = new StringBuilder ("a = ");
+    for (int i = 0; i < depth; i++) {
+        sb.append ("{ a = ");
+    }
+    sb.append ("1");
+    for (int i = 0; i < depth; i++) {
+        sb.append (" }");
+    }
+    sb.append ("\n");
+    return sb.str;
+}
+
+void test_parse_array_nesting_over_limit_fails () {
+    try {
+        Toml.parse_string (nest_arrays (Toml.MAX_VALUE_NESTING + 1));
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
+void test_parse_inline_table_nesting_over_limit_fails () {
+    try {
+        Toml.parse_string (nest_inline_tables (Toml.MAX_VALUE_NESTING + 1));
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
     }
 }
 
@@ -173,5 +210,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/array", test_parse_array);
     Test.add_func ("/toml/parser/inline_table_neutral_style", test_parse_inline_table_neutral_style);
     Test.add_func ("/toml/parser/array_of_tables", test_parse_array_of_tables);
+    Test.add_func ("/toml/parser/array_nesting_over_limit_fails", test_parse_array_nesting_over_limit_fails);
+    Test.add_func ("/toml/parser/inline_table_nesting_over_limit_fails", test_parse_inline_table_nesting_over_limit_fails);
     return Test.run ();
 }

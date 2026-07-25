@@ -29,7 +29,7 @@ void test_roundtrip_values () {
             assert (Toml.values_equal (t1, t2));
         }
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 

@@ -9,7 +9,7 @@ void test_lexer_key_equals_number () {
         assert (lex.next ().kind == Toml.TokenKind.NEWLINE);
         assert (lex.next ().kind == Toml.TokenKind.EOF);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -21,7 +21,7 @@ void test_lexer_skips_comment () {
         assert (t.kind == Toml.TokenKind.BOOLEAN);
         assert (t.text == "true");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -32,7 +32,7 @@ void test_lexer_brackets () {
         assert (lex.next ().kind == Toml.TokenKind.DOUBLE_LBRACKET);
         assert (lex.next ().kind == Toml.TokenKind.DOUBLE_RBRACKET);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -59,7 +59,7 @@ void test_lexer_punctuation_and_float () {
         assert (lex.next ().kind == Toml.TokenKind.NEWLINE);
         assert (lex.next ().kind == Toml.TokenKind.EOF);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -78,7 +78,7 @@ void test_lexer_hex_and_bool_false () {
         assert (b.kind == Toml.TokenKind.BOOLEAN);
         assert (b.text == "false");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -91,7 +91,7 @@ void test_lexer_line_column () {
         assert (t.line == 1);
         assert (t.column == 3);
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -102,7 +102,7 @@ void test_lexer_basic_string_escape () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "a\nb");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -113,7 +113,7 @@ void test_lexer_literal_string () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "C:\\Users");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -124,7 +124,7 @@ void test_lexer_multiline_basic () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "hello\nworld");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -135,7 +135,7 @@ void test_lexer_unicode_escapes () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "éé😀");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -146,7 +146,7 @@ void test_lexer_multiline_line_ending_backslash () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "The quick brown fox");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -157,7 +157,7 @@ void test_lexer_multiline_literal () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "I [dw]on't need \\d{2} apples");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -168,7 +168,7 @@ void test_lexer_multiline_quotes_inside () {
         assert (t.kind == Toml.TokenKind.STRING);
         assert (t.text == "Here are two quotation marks: \"\". Simple enough.");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -199,7 +199,7 @@ void test_lexer_offset_datetime () {
         assert (t.kind == Toml.TokenKind.DATETIME);
         assert (t.text == "1979-05-27T07:32:00Z");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -210,7 +210,7 @@ void test_lexer_local_datetime () {
         assert (t.kind == Toml.TokenKind.DATETIME_LOCAL);
         assert (t.text == "1979-05-27T07:32:00");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -231,7 +231,7 @@ void test_lexer_local_date () {
         assert (t.kind == Toml.TokenKind.DATE_LOCAL);
         assert (t.text == "1979-05-27");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -242,7 +242,7 @@ void test_lexer_local_time () {
         assert (t.kind == Toml.TokenKind.TIME_LOCAL);
         assert (t.text == "07:32:00");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -253,7 +253,7 @@ void test_lexer_integer_not_date () {
         assert (t.kind == Toml.TokenKind.INTEGER);
         assert (t.text == "1979");
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 

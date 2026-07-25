@@ -1,9 +1,15 @@
 namespace Toml {
+    // Cap array/inline-table nesting so untrusted input cannot SIGSEGV via stack overflow.
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal const int MAX_VALUE_NESTING = 1000;
+
+    [CCode (cheader_filename = "vala-toml-internal.h")]
     internal class Parser {
         private Lexer lexer;
         private Token current;
         private Table root;
         private Table current_table;
+        private int value_nesting = 0;
         // Tables opened via [header] (final segment of a header path)
         private Gee.HashSet<Table> explicit_tables;
         // Tables created as dotted-key / key-value intermediates (cannot be reopened via [header])
@@ -184,11 +190,20 @@ namespace Toml {
         }
 
         private Value parse_value () throws ParseError {
-            if (current.kind == TokenKind.LBRACKET) {
-                return parse_array ();
-            }
-            if (current.kind == TokenKind.LBRACE) {
-                return parse_inline_table ();
+            if (current.kind == TokenKind.LBRACKET || current.kind == TokenKind.LBRACE) {
+                if (value_nesting >= MAX_VALUE_NESTING) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, "maximum nesting depth exceeded"));
+                }
+                value_nesting++;
+                try {
+                    if (current.kind == TokenKind.LBRACKET) {
+                        return parse_array ();
+                    }
+                    return parse_inline_table ();
+                } finally {
+                    value_nesting--;
+                }
             }
             return parse_scalar ();
         }

@@ -6,7 +6,7 @@ void test_json_roundtrip_scalar () {
         var t2 = Toml.table_from_tagged_json (json);
         assert (Toml.values_equal (t, t2));
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
@@ -31,7 +31,7 @@ void test_json_roundtrip_types () {
             assert (Toml.values_equal (t1, t2));
         }
     } catch (Error e) {
-        error ("%s", e.message);
+        assert_no_error (e);
     }
 }
 
