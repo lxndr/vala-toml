@@ -151,7 +151,7 @@ void test_f011_no_string_injection_api () {
     assert (threw);
 }
 
-Toml.Array nest_inline_arrays (int depth) {
+Toml.Array nest_inline_arrays (int depth) throws Error {
     var inner = new Toml.Array ();
     inner.style.inline = true;
     for (int i = 0; i < depth - 1; i++) {
@@ -163,7 +163,7 @@ Toml.Array nest_inline_arrays (int depth) {
     return inner;
 }
 
-Toml.Table nest_standard_tables (int depth) {
+Toml.Table nest_standard_tables (int depth) throws Error {
     // depth nested tables under root key path t0.t1.… ; returns root
     var leaf = new Toml.Table ();
     leaf.set ("v", Toml.Value.from_integer (1));
@@ -191,24 +191,28 @@ void test_write_inline_array_nesting_at_limit_ok () {
 }
 
 void test_write_inline_array_nesting_over_limit_fails () {
-    var root = new Toml.Table ();
-    root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
     try {
+        var root = new Toml.Table ();
+        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
         assert (e.message != null && e.message.contains ("nesting"));
+    } catch (Error e) {
+        assert_no_error (e);
     }
 }
 
 void test_write_standard_table_nesting_over_limit_fails () {
-    // root + MAX nested tables => MAX+1 enters
-    var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
     try {
+        // root + MAX nested tables => MAX+1 enters
+        var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
         assert (e.message != null && e.message.contains ("nesting"));
+    } catch (Error e) {
+        assert_no_error (e);
     }
 }
 
@@ -217,10 +221,10 @@ void test_write_cyclic_dom_fails () {
     t.style.inline = true;
     var a = new Toml.Array ();
     a.style.inline = true;
-    t.set ("a", a);
-    a.add (t);
+    t.set_bytes_unchecked ("a".data, a);
+    a.add_unchecked (t);
     var root = new Toml.Table ();
-    root.set ("x", t);
+    root.set_bytes_unchecked ("x".data, t);
     try {
         Toml.write_string (root);
         assert_not_reached ();
@@ -230,18 +234,20 @@ void test_write_cyclic_dom_fails () {
 }
 
 void test_write_error_inline_table_with_aot () {
-    var root = new Toml.Table ();
-    var bad = new Toml.Table ();
-    bad.style.inline = true;
-    var aot = new Toml.Array ();
-    aot.add (new Toml.Table ());
-    bad.set ("x", aot);
-    root.set ("bad", bad);
     try {
+        var root = new Toml.Table ();
+        var bad = new Toml.Table ();
+        bad.style.inline = true;
+        var aot = new Toml.Array ();
+        aot.add (new Toml.Table ());
+        bad.set ("x", aot);
+        root.set ("bad", bad);
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
         // expected
+    } catch (Error e) {
+        assert_no_error (e);
     }
 }
 

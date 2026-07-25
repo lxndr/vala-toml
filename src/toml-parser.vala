@@ -82,7 +82,7 @@ namespace Toml {
                 uint8[] key = path[i].get_data ();
                 if (!table.has_bytes (key)) {
                     var child = new Table ();
-                    table.set_bytes (key, child);
+                    table.set_bytes_unchecked (key, child);
                     table = child;
                     continue;
                 }
@@ -126,7 +126,7 @@ namespace Toml {
             Array array;
             if (!table.has_bytes (final_key)) {
                 array = new Array ();
-                table.set_bytes (final_key, array);
+                table.set_bytes_unchecked (final_key, array);
                 aot_arrays.add (array);
             } else {
                 Value? existing = table.get_bytes (final_key);
@@ -142,7 +142,7 @@ namespace Toml {
                 array = as_array;
             }
             var child = new Table ();
-            array.add (child);
+            array.add_unchecked (child);
             explicit_tables.add (child);
             return child;
         }
@@ -157,7 +157,7 @@ namespace Toml {
             uint8[] final_key = path[path.size - 1].get_data ();
             if (!table.has_bytes (final_key)) {
                 var child = new Table ();
-                table.set_bytes (final_key, child);
+                table.set_bytes_unchecked (final_key, child);
                 explicit_tables.add (child);
                 return child;
             }
@@ -218,7 +218,7 @@ namespace Toml {
             }
             while (true) {
                 skip_newlines_value ();
-                array.add (parse_value ());
+                array.add_unchecked (parse_value ());
                 skip_newlines_value ();
                 if (current.kind != TokenKind.COMMA) {
                     break;
@@ -394,7 +394,7 @@ namespace Toml {
                             format_parse_error (current.line, current.column, "cannot extend inline table"));
                     }
                     var child = new Table ();
-                    table.set_bytes (key, child);
+                    table.set_bytes_unchecked (key, child);
                     dotted_tables.add (child);
                     table = child;
                     continue;
@@ -428,7 +428,7 @@ namespace Toml {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, "duplicate key"));
             }
-            table.set_bytes (final_key, value);
+            table.set_bytes_unchecked (final_key, value);
         }
 
         private void expect_key (TokenKind kind, string message) throws ParseError {

@@ -43,7 +43,7 @@ string nest_json_objects (int depth) {
     return inner;
 }
 
-Toml.Array nest_inline_arrays (int depth) {
+Toml.Array nest_inline_arrays (int depth) throws Error {
     var inner = new Toml.Array ();
     inner.style.inline = true;
     if (depth < 1) {
@@ -70,13 +70,15 @@ void test_json_decode_nesting_over_limit_fails () {
 }
 
 void test_json_encode_nesting_over_limit_fails () {
-    var root = new Toml.Table ();
-    root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
     try {
+        var root = new Toml.Table ();
+        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
         Toml.table_to_tagged_json (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
         assert (e.message != null && e.message.contains ("nesting"));
+    } catch (Error e) {
+        assert_no_error (e);
     }
 }
 
@@ -106,10 +108,10 @@ void test_json_encode_cyclic_dom_fails () {
     t.style.inline = true;
     var a = new Toml.Array ();
     a.style.inline = true;
-    t.set ("a", a);
-    a.add (t);
+    t.set_bytes_unchecked ("a".data, a);
+    a.add_unchecked (t);
     var root = new Toml.Table ();
-    root.set ("x", t);
+    root.set_bytes_unchecked ("x".data, t);
     try {
         Toml.table_to_tagged_json (root);
         assert_not_reached ();

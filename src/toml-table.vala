@@ -1,4 +1,50 @@
 namespace Toml {
+    internal bool value_reaches (Value from, Value dest) {
+        if (from == dest) {
+            return true;
+        }
+        var stack = new Gee.ArrayList<Value> ();
+        var seen = new Gee.HashSet<Value> (
+            (Gee.HashDataFunc<Value>) GLib.direct_hash,
+            (Gee.EqualDataFunc<Value>) GLib.direct_equal);
+        stack.add (from);
+        while (stack.size > 0) {
+            var cur = stack.remove_at (stack.size - 1);
+            if (!seen.add (cur)) {
+                continue;
+            }
+            var table = cur as Table;
+            if (table != null) {
+                foreach (var key_bytes in table.key_bytes_list) {
+                    Value? child = table.get_bytes (key_bytes.get_data ());
+                    if (child == null) {
+                        continue;
+                    }
+                    if (child == dest) {
+                        return true;
+                    }
+                    if (child is Table || child is Array) {
+                        stack.add (child);
+                    }
+                }
+                continue;
+            }
+            var array = cur as Array;
+            if (array != null) {
+                for (int i = 0; i < array.size; i++) {
+                    Value child = array.get (i);
+                    if (child == dest) {
+                        return true;
+                    }
+                    if (child is Table || child is Array) {
+                        stack.add (child);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * A TOML table (key/value map) with write-style hints.
      */
@@ -38,12 +84,19 @@ namespace Toml {
         }
 
         /** Set a key from a Vala string. */
-        public new void set (string key, Value value) {
+        public new void set (string key, Value value) throws ValueError {
             set_bytes (key.data, value);
         }
 
         /** Set a key from raw key bytes. */
-        public void set_bytes (uint8[] key_bytes, Value value) {
+        public void set_bytes (uint8[] key_bytes, Value value) throws ValueError {
+            if ((value is Table || value is Array) && value_reaches (value, this)) {
+                throw new ValueError.INVALID ("cyclic DOM");
+            }
+            set_bytes_unchecked (key_bytes, value);
+        }
+
+        internal void set_bytes_unchecked (uint8[] key_bytes, Value value) {
             string map_key = map_key_from_bytes (key_bytes);
             if (!entries.has_key (map_key)) {
                 key_bytes_order.add (new Bytes (Value.bytes_copy (key_bytes)));

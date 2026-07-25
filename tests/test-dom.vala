@@ -23,34 +23,46 @@ void test_style_defaults () {
 }
 
 void test_table_insertion_order_and_get () {
-    var t = new Toml.Table ();
-    t.set ("b", Toml.Value.from_string ("2"));
-    t.set ("a", Toml.Value.from_integer (1));
-    assert (t.size == 2);
-    assert (t.keys.get (0) == "b");
-    assert (t.keys.get (1) == "a");
-    assert (t.get ("a").get_integer () == 1);
-    assert (t.get ("b").get_string () == "2");
-    assert (t.as_table () == t);
-    assert (t.style.inline == false);
+    try {
+        var t = new Toml.Table ();
+        t.set ("b", Toml.Value.from_string ("2"));
+        t.set ("a", Toml.Value.from_integer (1));
+        assert (t.size == 2);
+        assert (t.keys.get (0) == "b");
+        assert (t.keys.get (1) == "a");
+        assert (t.get ("a").get_integer () == 1);
+        assert (t.get ("b").get_string () == "2");
+        assert (t.as_table () == t);
+        assert (t.style.inline == false);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
 }
 
 void test_array_basic () {
-    var a = new Toml.Array ();
-    a.add (Toml.Value.from_boolean (true));
-    a.add (Toml.Value.from_float (1.5));
-    assert (a.size == 2);
-    assert (a.get (0).get_boolean () == true);
-    assert (a.get (1).get_float () == 1.5);
-    assert (!a.style.multiline);
+    try {
+        var a = new Toml.Array ();
+        a.add (Toml.Value.from_boolean (true));
+        a.add (Toml.Value.from_float (1.5));
+        assert (a.size == 2);
+        assert (a.get (0).get_boolean () == true);
+        assert (a.get (1).get_float () == 1.5);
+        assert (!a.style.multiline);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
 }
 
 void test_nested_table () {
-    var root = new Toml.Table ();
-    var child = new Toml.Table ();
-    child.set ("x", Toml.Value.from_integer (9));
-    root.set ("child", child);
-    assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
+    try {
+        var root = new Toml.Table ();
+        var child = new Toml.Table ();
+        child.set ("x", Toml.Value.from_integer (9));
+        root.set ("child", child);
+        assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
 }
 
 void test_table_set_self_cycle_fails () {

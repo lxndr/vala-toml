@@ -364,7 +364,7 @@ namespace Toml {
                 if (child != null) {
                     child.style.inline = true;
                 }
-                table.set_bytes (key_bytes[mk].get_data (), keys[mk]);
+                table.set_bytes_unchecked (key_bytes[mk].get_data (), keys[mk]);
             }
             return table;
         }
@@ -385,7 +385,7 @@ namespace Toml {
                 if (child_table != null) {
                     child_table.style.inline = true;
                 }
-                array.add (elem);
+                array.add_unchecked (elem);
                 skip_ws ();
                 if (peek () == ',') {
                     advance ();

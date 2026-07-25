@@ -26,7 +26,14 @@ namespace Toml {
         }
 
         /** Append a value. */
-        public void add (Value value) {
+        public void add (Value value) throws ValueError {
+            if ((value is Table || value is Array) && value_reaches (value, this)) {
+                throw new ValueError.INVALID ("cyclic DOM");
+            }
+            add_unchecked (value);
+        }
+
+        internal void add_unchecked (Value value) {
             items.add (value);
         }
 
@@ -36,7 +43,10 @@ namespace Toml {
         }
 
         /** Replace element by index. */
-        public new void set (int index, Value value) {
+        public new void set (int index, Value value) throws ValueError {
+            if ((value is Table || value is Array) && value_reaches (value, this)) {
+                throw new ValueError.INVALID ("cyclic DOM");
+            }
             items[index] = value;
         }
 

@@ -1,10 +1,14 @@
 void test_values_equal_ignores_style () {
-    var a = new Toml.Table ();
-    a.set ("k", Toml.Value.from_integer (1));
-    var b = new Toml.Table ();
-    b.set ("k", Toml.Value.from_integer (1));
-    b.style.inline = true;
-    assert (Toml.values_equal (a, b));
+    try {
+        var a = new Toml.Table ();
+        a.set ("k", Toml.Value.from_integer (1));
+        var b = new Toml.Table ();
+        b.set ("k", Toml.Value.from_integer (1));
+        b.style.inline = true;
+        assert (Toml.values_equal (a, b));
+    } catch (Error e) {
+        assert_no_error (e);
+    }
 }
 
 void test_values_equal_detects_difference () {
