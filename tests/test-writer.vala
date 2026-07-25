@@ -151,6 +151,72 @@ void test_f011_no_string_injection_api () {
     assert (threw);
 }
 
+Toml.Array nest_inline_arrays (int depth) {
+    var inner = new Toml.Array ();
+    inner.style.inline = true;
+    for (int i = 0; i < depth - 1; i++) {
+        var outer = new Toml.Array ();
+        outer.style.inline = true;
+        outer.add (inner);
+        inner = outer;
+    }
+    return inner;
+}
+
+Toml.Table nest_standard_tables (int depth) {
+    // depth nested tables under root key path t0.t1.… ; returns root
+    var leaf = new Toml.Table ();
+    leaf.set ("v", Toml.Value.from_integer (1));
+    var cur = leaf;
+    for (int i = 0; i < depth - 1; i++) {
+        var parent = new Toml.Table ();
+        parent.set ("t", cur);
+        cur = parent;
+    }
+    var root = new Toml.Table ();
+    root.set ("t", cur);
+    return root;
+}
+
+void test_write_inline_array_nesting_over_limit_fails () {
+    var root = new Toml.Table ();
+    root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+    try {
+        Toml.write_string (root);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
+void test_write_standard_table_nesting_over_limit_fails () {
+    // root + MAX nested tables => MAX+1 enters
+    var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
+    try {
+        Toml.write_string (root);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
+void test_write_cyclic_dom_fails () {
+    var t = new Toml.Table ();
+    t.style.inline = true;
+    var a = new Toml.Array ();
+    a.style.inline = true;
+    t.set ("a", a);
+    a.add (t);
+    var root = new Toml.Table ();
+    root.set ("x", t);
+    try {
+        Toml.write_string (root);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("cyclic"));
+    }
+}
+
 void test_write_error_inline_table_with_aot () {
     var root = new Toml.Table ();
     var bad = new Toml.Table ();
@@ -181,5 +247,10 @@ public static int main (string[] args) {
     Test.add_func ("/toml/writer/offset_datetime_canonical", test_write_offset_datetime_canonical);
     Test.add_func ("/toml/writer/f011_no_string_injection_api", test_f011_no_string_injection_api);
     Test.add_func ("/toml/writer/error_inline_table_with_aot", test_write_error_inline_table_with_aot);
+    Test.add_func ("/toml/writer/inline_array_nesting_over_limit_fails",
+        test_write_inline_array_nesting_over_limit_fails);
+    Test.add_func ("/toml/writer/standard_table_nesting_over_limit_fails",
+        test_write_standard_table_nesting_over_limit_fails);
+    Test.add_func ("/toml/writer/cyclic_dom_fails", test_write_cyclic_dom_fails);
     return Test.run ();
 }
