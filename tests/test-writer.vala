@@ -127,6 +127,30 @@ void test_write_dotted_keys () {
     }
 }
 
+void test_write_offset_datetime_canonical () {
+    try {
+        var root = new Toml.Table ();
+        var tz = new TimeZone.utc ();
+        var dt = new DateTime (tz, 1979, 5, 27, 7, 32, 0.0);
+        root.set ("t", Toml.Value.from_offset_datetime (dt));
+        assert (Toml.write_string (root) == "t = 1979-05-27T07:32:00Z\n");
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
+void test_f011_no_string_injection_api () {
+    // Public API has no string datetime ctor — building an injected value is a compile error.
+    // Runtime guard: parse rejects junk that would have been stored before.
+    bool threw = false;
+    try {
+        Toml.parse_offset_datetime ("1970-01-01T00:00:00Z\nx = 1");
+    } catch (Toml.ParseError e) {
+        threw = true;
+    }
+    assert (threw);
+}
+
 void test_write_error_inline_table_with_aot () {
     var root = new Toml.Table ();
     var bad = new Toml.Table ();
@@ -154,6 +178,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/writer/aot_standard", test_write_aot_standard);
     Test.add_func ("/toml/writer/aot_inline", test_write_aot_inline);
     Test.add_func ("/toml/writer/dotted_keys", test_write_dotted_keys);
+    Test.add_func ("/toml/writer/offset_datetime_canonical", test_write_offset_datetime_canonical);
+    Test.add_func ("/toml/writer/f011_no_string_injection_api", test_f011_no_string_injection_api);
     Test.add_func ("/toml/writer/error_inline_table_with_aot", test_write_error_inline_table_with_aot);
     return Test.run ();
 }

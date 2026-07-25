@@ -201,6 +201,30 @@ void test_parse_rejects_second_60 () {
     assert (threw);
 }
 
+void test_values_equal_offset_datetime_same () {
+    try {
+        var tz = new TimeZone.utc ();
+        var dt = new DateTime (tz, 1979, 5, 27, 7, 32, 0.0);
+        var a = Toml.Value.from_offset_datetime (dt);
+        var b = Toml.Value.from_offset_datetime (dt);
+        assert (Toml.values_equal (a, b));
+    } catch (Error e) {
+        assert_not_reached ();
+    }
+}
+
+void test_values_equal_offset_datetime_different_offset () {
+    try {
+        var tz_utc = new TimeZone.utc ();
+        var tz_minus7 = new TimeZone.offset ((int) (-7 * TimeSpan.HOUR / TimeSpan.SECOND));
+        var a = Toml.Value.from_offset_datetime (new DateTime (tz_utc, 1979, 5, 27, 7, 32, 0.0));
+        var b = Toml.Value.from_offset_datetime (new DateTime (tz_minus7, 1979, 5, 27, 7, 32, 0.0));
+        assert (!Toml.values_equal (a, b));
+    } catch (Error e) {
+        assert_not_reached ();
+    }
+}
+
 void test_parse_rejects_trailing_junk () {
     bool threw = false;
     try {
@@ -235,5 +259,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/datetime/parse_rejects_invalid_date", test_parse_rejects_invalid_date);
     Test.add_func ("/toml/datetime/parse_rejects_second_60", test_parse_rejects_second_60);
     Test.add_func ("/toml/datetime/parse_rejects_trailing_junk", test_parse_rejects_trailing_junk);
+    Test.add_func ("/toml/datetime/values_equal_offset_datetime_same", test_values_equal_offset_datetime_same);
+    Test.add_func ("/toml/datetime/values_equal_offset_datetime_different_offset", test_values_equal_offset_datetime_different_offset);
     return Test.run ();
 }
