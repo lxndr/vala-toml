@@ -228,6 +228,7 @@ namespace Toml {
         private string input;
         private int pos;
         private int length;
+        private int nest_depth;
 
         public TaggedJsonParser (string input) {
             this.input = input;
@@ -255,11 +256,19 @@ namespace Toml {
                 throw new ParseError.FAILED ("unexpected end of JSON");
             }
             unichar c = peek ();
-            if (c == '{') {
-                return parse_object ();
-            }
-            if (c == '[') {
-                return parse_array ();
+            if (c == '{' || c == '[') {
+                if (nest_depth >= MAX_VALUE_NESTING) {
+                    throw new ParseError.FAILED ("maximum nesting depth exceeded");
+                }
+                nest_depth++;
+                try {
+                    if (c == '{') {
+                        return parse_object ();
+                    }
+                    return parse_array ();
+                } finally {
+                    nest_depth--;
+                }
             }
             throw new ParseError.FAILED ("unexpected JSON value");
         }
