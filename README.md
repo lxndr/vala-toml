@@ -19,11 +19,19 @@ meson compile -C build
 
 ## Use as Meson subproject
 
-Add this repo as a git submodule at `subprojects/vala-toml` (directory name must match the Meson project name):
+Create `subprojects/vala-toml.wrap` in your project (the filename must match the Meson project name):
 
-```bash
-git submodule add <this-repo-url> subprojects/vala-toml
+```ini
+[wrap-git]
+url = https://github.com/lxndr/vala-toml.git
+revision = main
+depth = 1
+
+[provide]
+dependency_names = vala-toml
 ```
+
+Pin `revision` to a tag or commit hash for reproducible builds. Meson fetches the source on configure; update with `meson subprojects update vala-toml`.
 
 In the parent `meson.build`:
 
@@ -39,8 +47,6 @@ executable(
 ```
 
 This links a **static** library built inside the parent's build tree. There is no system install, `.pc` file, or hand-managed `.vapi` — Meson wires the generated VAPI through `vala_toml_dep`.
-
-See `examples/subproject-smoke/` for a minimal working parent.
 
 ## Test
 
