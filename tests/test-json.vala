@@ -35,9 +35,77 @@ void test_json_roundtrip_types () {
     }
 }
 
+string nest_json_objects (int depth) {
+    string inner = "{\"type\":\"integer\",\"value\":\"1\"}";
+    for (int i = 0; i < depth - 1; i++) {
+        inner = "{\"k\":" + inner + "}";
+    }
+    return inner;
+}
+
+Toml.Array nest_inline_arrays (int depth) {
+    var inner = new Toml.Array ();
+    inner.style.inline = true;
+    if (depth < 1) {
+        return inner;
+    }
+    for (int i = 0; i < depth - 1; i++) {
+        var outer = new Toml.Array ();
+        outer.style.inline = true;
+        outer.add (inner);
+        inner = outer;
+    }
+    return inner;
+}
+
+void test_json_decode_nesting_over_limit_fails () {
+    try {
+        Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_NESTING + 1));
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    } catch (Error e) {
+        assert_not_reached ();
+    }
+}
+
+void test_json_encode_nesting_over_limit_fails () {
+    var root = new Toml.Table ();
+    root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+    try {
+        Toml.table_to_tagged_json (root);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("nesting"));
+    }
+}
+
+void test_json_encode_cyclic_dom_fails () {
+    var t = new Toml.Table ();
+    t.style.inline = true;
+    var a = new Toml.Array ();
+    a.style.inline = true;
+    t.set ("a", a);
+    a.add (t);
+    var root = new Toml.Table ();
+    root.set ("x", t);
+    try {
+        Toml.table_to_tagged_json (root);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("cyclic"));
+    }
+}
+
 public static int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/toml/json_roundtrip_scalar", test_json_roundtrip_scalar);
     Test.add_func ("/toml/json_roundtrip_types", test_json_roundtrip_types);
+    Test.add_func ("/toml/json/decode_nesting_over_limit_fails",
+        test_json_decode_nesting_over_limit_fails);
+    Test.add_func ("/toml/json/encode_nesting_over_limit_fails",
+        test_json_encode_nesting_over_limit_fails);
+    Test.add_func ("/toml/json/encode_cyclic_dom_fails",
+        test_json_encode_cyclic_dom_fails);
     return Test.run ();
 }

@@ -1,6 +1,6 @@
 namespace Toml {
     [CCode (cheader_filename = "vala-toml-internal.h")]
-    internal string table_to_tagged_json (Table root) {
+    internal string table_to_tagged_json (Table root) throws WriteError {
         var sb = new StringBuilder ();
         append_json_value (sb, root);
         return sb.str;
