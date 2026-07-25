@@ -2,6 +2,8 @@ namespace Toml {
     internal class Writer {
         private WriteOptions options;
         private StringBuilder buf;
+        private int emit_depth;
+        private Gee.HashSet<Value> active;
 
         public Writer (WriteOptions? options) {
             this.options = options ?? WriteOptions ();
@@ -10,8 +12,28 @@ namespace Toml {
 
         public string emit (Table root) throws WriteError {
             buf = new StringBuilder ();
+            emit_depth = 0;
+            active = new Gee.HashSet<Value> (
+                (Gee.HashDataFunc<Value>) GLib.direct_hash,
+                (Gee.EqualDataFunc<Value>) GLib.direct_equal);
             emit_table_body (root, new Gee.ArrayList<Bytes> ());
             return buf.str;
+        }
+
+        private void enter_container (Value node) throws WriteError {
+            if (active.contains (node)) {
+                throw new WriteError.FAILED ("cyclic DOM");
+            }
+            if (emit_depth >= MAX_VALUE_NESTING) {
+                throw new WriteError.FAILED ("maximum nesting depth exceeded");
+            }
+            active.add (node);
+            emit_depth++;
+        }
+
+        private void leave_container (Value node) {
+            active.remove (node);
+            emit_depth--;
         }
 
         private int resolve_indent (int node_indent) {
@@ -25,6 +47,8 @@ namespace Toml {
         }
 
         private void emit_table_body (Table table, Gee.ArrayList<Bytes> path) throws WriteError {
+            enter_container (table);
+            try {
             var nested = new Gee.ArrayList<Bytes> ();
             for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
                 Bytes key_b = table.key_bytes_list[ki];
@@ -67,32 +91,42 @@ namespace Toml {
                     emit_array_of_tables (as_array, append_path (path, key_b));
                 }
             }
+            } finally {
+                leave_container (table);
+            }
         }
 
-        private bool is_dotted_eligible (Table table) {
-            if (table.size == 0) {
-                return false;
-            }
-            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                Bytes key_b = table.key_bytes_list[ki];
-                uint8[] key = key_b.get_data ();
-                var value = table.get_bytes (key);
-                var child = value as Table;
-                if (child != null && !child.style.inline) {
-                    if (!is_dotted_eligible (child)) {
-                        return false;
-                    }
-                    continue;
-                }
-                var arr = value as Array;
-                if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
+        private bool is_dotted_eligible (Table table) throws WriteError {
+            enter_container (table);
+            try {
+                if (table.size == 0) {
                     return false;
                 }
+                for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
+                    Bytes key_b = table.key_bytes_list[ki];
+                    uint8[] key = key_b.get_data ();
+                    var value = table.get_bytes (key);
+                    var child = value as Table;
+                    if (child != null && !child.style.inline) {
+                        if (!is_dotted_eligible (child)) {
+                            return false;
+                        }
+                        continue;
+                    }
+                    var arr = value as Array;
+                    if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
+                        return false;
+                    }
+                }
+                return true;
+            } finally {
+                leave_container (table);
             }
-            return true;
         }
 
         private void emit_dotted_leaves (Gee.ArrayList<Bytes> prefix, Table table) throws WriteError {
+            enter_container (table);
+            try {
             for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
                 Bytes key_b = table.key_bytes_list[ki];
                 uint8[] key = key_b.get_data ();
@@ -106,6 +140,9 @@ namespace Toml {
                 buf.append (" = ");
                 emit_value (value, 0);
                 buf.append_c ('\n');
+            }
+            } finally {
+                leave_container (table);
             }
         }
 
@@ -246,12 +283,19 @@ namespace Toml {
                 }
                 var child = value as Table;
                 if (child != null) {
-                    validate_inline_table (child);
+                    enter_container (child);
+                    try {
+                        validate_inline_table (child);
+                    } finally {
+                        leave_container (child);
+                    }
                 }
             }
         }
 
         private void emit_inline_table (Table table, int base_indent) throws WriteError {
+            enter_container (table);
+            try {
             validate_inline_table (table);
 
             if (!table.style.multiline) {
@@ -288,6 +332,9 @@ namespace Toml {
             buf.append_c ('\n');
             append_spaces (base_indent);
             buf.append_c ('}');
+            } finally {
+                leave_container (table);
+            }
         }
 
         private bool array_has_table_element (Array array) {
@@ -300,6 +347,8 @@ namespace Toml {
         }
 
         private void emit_inline_array (Array array, int base_indent) throws WriteError {
+            enter_container (array);
+            try {
             // Nested non-inline AoT inside a value-position array is illegal.
             if (is_array_of_tables (array) && !array.style.inline) {
                 throw new WriteError.FAILED ("array-of-tables cannot be emitted in value position without inline style");
@@ -336,6 +385,9 @@ namespace Toml {
                 buf.append_c (' ');
             }
             buf.append_c (']');
+            } finally {
+                leave_container (array);
+            }
         }
 
         private void emit_float (double v) {
