@@ -105,21 +105,26 @@ Namespace: `Toml`. Callers must handle `ParseError` / `WriteError` where thrown;
 
 - `ParseError.FAILED` — invalid TOML or parse I/O failure
 - `WriteError.FAILED` — emission or write I/O failure
+- `ValueError.INVALID` — invalid arguments when constructing a typed value
 
 ### ValueKind
 
-`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `DATETIME`, `DATETIME_LOCAL`, `DATE_LOCAL`, `TIME_LOCAL`, `TABLE`, `ARRAY`
+`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `OFFSET_DATETIME`, `LOCAL_DATETIME`, `LOCAL_DATE`, `LOCAL_TIME`, `TABLE`, `ARRAY`
 
 ### Value
 
 - `kind` — runtime `ValueKind`
 - `from_string` / `from_string_bytes` — string value
 - `from_integer` / `from_float` / `from_boolean` — scalar values
-- `from_datetime` / `from_datetime_local` / `from_date_local` / `from_time_local` — date-time-like from lexical form
+- `from_offset_datetime` / `get_offset_datetime` — offset date-time as `GLib.DateTime`
+- `from_local_datetime` / `get_local_datetime` — local date-time as `Toml.LocalDateTime`
+- `from_local_date` / `get_local_date` — local date as `GLib.Date`
+- `from_local_time` / `get_local_time` — local time as `Toml.LocalTime`
 - `get_string` / `get_string_bytes` — string payload or null
 - `get_integer` / `get_float` / `get_boolean` — typed payload or null
-- `get_raw` / `get_raw_bytes` — lexical form for string/date-time-like kinds
 - `as_table` / `as_array` — downcast or null
+
+`LocalTime` stores validated hour, minute, second, and microsecond fields without a timezone. `LocalDateTime` combines a valid `GLib.Date` with a `LocalTime`, also without a timezone.
 
 ### Table
 
