@@ -18,11 +18,32 @@ namespace Toml {
         switch (a.kind) {
         case ValueKind.STRING:
             return Value.bytes_equal (a.get_string_bytes (), b.get_string_bytes ());
-        case ValueKind.DATETIME:
-        case ValueKind.DATETIME_LOCAL:
-        case ValueKind.DATE_LOCAL:
-        case ValueKind.TIME_LOCAL:
-            return a.get_raw () == b.get_raw ();
+        case ValueKind.OFFSET_DATETIME:
+            return offset_datetime_equal (a.get_offset_datetime (), b.get_offset_datetime ());
+        case ValueKind.LOCAL_DATETIME: {
+            var la = a.get_local_datetime ();
+            var lb = b.get_local_datetime ();
+            if (la == null || lb == null) {
+                return la == lb;
+            }
+            return local_datetime_equal (la, lb);
+        }
+        case ValueKind.LOCAL_DATE: {
+            var da = a.get_local_date ();
+            var db = b.get_local_date ();
+            if (da == null || db == null) {
+                return da == db;
+            }
+            return da.compare (db) == 0;
+        }
+        case ValueKind.LOCAL_TIME: {
+            var ta = a.get_local_time ();
+            var tb = b.get_local_time ();
+            if (ta == null || tb == null) {
+                return ta == tb;
+            }
+            return local_time_equal (ta, tb);
+        }
         case ValueKind.INTEGER:
             return a.get_integer () == b.get_integer ();
         case ValueKind.FLOAT:

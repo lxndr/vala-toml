@@ -196,7 +196,7 @@ void test_lexer_offset_datetime () {
     try {
         var lex = new Toml.Lexer ("1979-05-27T07:32:00Z");
         var t = lex.next ();
-        assert (t.kind == Toml.TokenKind.DATETIME);
+        assert (t.kind == Toml.TokenKind.OFFSET_DATETIME);
         assert (t.text == "1979-05-27T07:32:00Z");
     } catch (Error e) {
         assert_no_error (e);
@@ -207,7 +207,7 @@ void test_lexer_local_datetime () {
     try {
         var lex = new Toml.Lexer ("1979-05-27T07:32:00");
         var t = lex.next ();
-        assert (t.kind == Toml.TokenKind.DATETIME_LOCAL);
+        assert (t.kind == Toml.TokenKind.LOCAL_DATETIME);
         assert (t.text == "1979-05-27T07:32:00");
     } catch (Error e) {
         assert_no_error (e);
@@ -228,7 +228,7 @@ void test_lexer_local_date () {
     try {
         var lex = new Toml.Lexer ("1979-05-27");
         var t = lex.next ();
-        assert (t.kind == Toml.TokenKind.DATE_LOCAL);
+        assert (t.kind == Toml.TokenKind.LOCAL_DATE);
         assert (t.text == "1979-05-27");
     } catch (Error e) {
         assert_no_error (e);
@@ -239,7 +239,7 @@ void test_lexer_local_time () {
     try {
         var lex = new Toml.Lexer ("07:32:00");
         var t = lex.next ();
-        assert (t.kind == Toml.TokenKind.TIME_LOCAL);
+        assert (t.kind == Toml.TokenKind.LOCAL_TIME);
         assert (t.text == "07:32:00");
     } catch (Error e) {
         assert_no_error (e);

@@ -17,10 +17,10 @@ namespace Toml {
         INTEGER,
         FLOAT,
         BOOLEAN,
-        DATETIME,
-        DATETIME_LOCAL,
-        DATE_LOCAL,
-        TIME_LOCAL
+        OFFSET_DATETIME,
+        LOCAL_DATETIME,
+        LOCAL_DATE,
+        LOCAL_TIME
     }
 
     [CCode (cheader_filename = "vala-toml-internal.h")]

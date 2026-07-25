@@ -76,22 +76,34 @@ namespace Toml {
             type_name = "bool";
             append_tagged (sb, type_name, value.get_boolean () ? "true" : "false");
             return;
-        case ValueKind.DATETIME:
+        case ValueKind.OFFSET_DATETIME: {
             type_name = "datetime";
-            append_tagged (sb, type_name, normalize_datetime (value.get_raw (), true));
+            var dt = value.get_offset_datetime ();
+            assert (dt != null);
+            append_tagged (sb, type_name, format_offset_datetime (dt));
             return;
-        case ValueKind.DATETIME_LOCAL:
+        }
+        case ValueKind.LOCAL_DATETIME: {
             type_name = "datetime-local";
-            append_tagged (sb, type_name, normalize_datetime (value.get_raw (), false));
+            var ldt = value.get_local_datetime ();
+            assert (ldt != null);
+            append_tagged (sb, type_name, format_local_datetime (ldt));
             return;
-        case ValueKind.DATE_LOCAL:
+        }
+        case ValueKind.LOCAL_DATE: {
             type_name = "date-local";
-            append_tagged (sb, type_name, value.get_raw ());
+            var d = value.get_local_date ();
+            assert (d != null);
+            append_tagged (sb, type_name, format_local_date (d));
             return;
-        case ValueKind.TIME_LOCAL:
+        }
+        case ValueKind.LOCAL_TIME: {
             type_name = "time-local";
-            append_tagged (sb, type_name, normalize_time (value.get_raw ()));
+            var t = value.get_local_time ();
+            assert (t != null);
+            append_tagged (sb, type_name, format_local_time (t));
             return;
+        }
         default:
             assert_not_reached ();
         }
@@ -209,54 +221,6 @@ namespace Toml {
             s += ".0";
         }
         return s;
-    }
-
-    private string normalize_time (string raw) {
-        // HH:MM[:SS[.frac]] → ensure seconds
-        if (raw.length == 5 && raw[2] == ':') {
-            return raw + ":00";
-        }
-        return raw;
-    }
-
-    private string normalize_datetime (string raw, bool with_offset) {
-        // Ensure T separator and seconds
-        string s = raw.replace (" ", "T");
-        // Find time part after T
-        int t = s.index_of_char ('T');
-        if (t < 0) {
-            t = s.index_of_char ('t');
-        }
-        if (t < 0) {
-            return s;
-        }
-        string date = s.substring (0, t);
-        string rest = s.substring (t + 1);
-        // rest: HH:MM[:SS[.frac]][offset]
-        string time;
-        string offset = "";
-        int cut = rest.length;
-        for (int i = 0; i < rest.length; i++) {
-            unichar c = rest.get_char (i);
-            if (c == 'Z' || c == 'z' || c == '+') {
-                cut = i;
-                break;
-            }
-            if (c == '-' && i >= 5) {
-                cut = i;
-                break;
-            }
-        }
-        time = rest.substring (0, cut);
-        if (cut < rest.length) {
-            offset = rest.substring (cut);
-            if (offset.has_prefix ("z")) {
-                offset = "Z";
-            }
-        }
-        time = normalize_time (time);
-        string sep = "T";
-        return date + sep + time + offset;
     }
 
     // Minimal tagged-JSON parser that preserves embedded NUL in strings.
@@ -403,13 +367,29 @@ namespace Toml {
                 }
                 throw new ParseError.FAILED ("invalid bool value: %s".printf (encoded));
             case "datetime":
-                return Value.from_datetime (encoded);
+                try {
+                    return Value.from_offset_datetime (parse_offset_datetime (encoded));
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (e.message);
+                }
             case "datetime-local":
-                return Value.from_datetime_local (encoded);
+                try {
+                    return Value.from_local_datetime (parse_local_datetime (encoded));
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (e.message);
+                }
             case "date-local":
-                return Value.from_date_local (encoded);
+                try {
+                    return Value.from_local_date (parse_local_date (encoded));
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (e.message);
+                }
             case "time-local":
-                return Value.from_time_local (encoded);
+                try {
+                    return Value.from_local_time (parse_local_time (encoded));
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (e.message);
+                }
             default:
                 throw new ParseError.FAILED ("unknown tagged JSON type: %s".printf (type_name));
             }

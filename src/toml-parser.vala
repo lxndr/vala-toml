@@ -326,23 +326,51 @@ namespace Toml {
                 advance_value ();
                 return v;
             }
-            case TokenKind.DATETIME: {
-                var v = Value.from_datetime (current.text);
+            case TokenKind.OFFSET_DATETIME: {
+                DateTime dt = parse_offset_datetime (current.text);
+                Value v;
+                try {
+                    v = Value.from_offset_datetime (dt);
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, e.message));
+                }
                 advance_value ();
                 return v;
             }
-            case TokenKind.DATETIME_LOCAL: {
-                var v = Value.from_datetime_local (current.text);
+            case TokenKind.LOCAL_DATETIME: {
+                LocalDateTime ldt = parse_local_datetime (current.text);
+                Value v;
+                try {
+                    v = Value.from_local_datetime (ldt);
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, e.message));
+                }
                 advance_value ();
                 return v;
             }
-            case TokenKind.DATE_LOCAL: {
-                var v = Value.from_date_local (current.text);
+            case TokenKind.LOCAL_DATE: {
+                Date d = parse_local_date (current.text);
+                Value v;
+                try {
+                    v = Value.from_local_date (d);
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, e.message));
+                }
                 advance_value ();
                 return v;
             }
-            case TokenKind.TIME_LOCAL: {
-                var v = Value.from_time_local (current.text);
+            case TokenKind.LOCAL_TIME: {
+                LocalTime t = parse_local_time (current.text);
+                Value v;
+                try {
+                    v = Value.from_local_time (t);
+                } catch (ValueError e) {
+                    throw new ParseError.FAILED (
+                        format_parse_error (current.line, current.column, e.message));
+                }
                 advance_value ();
                 return v;
             }

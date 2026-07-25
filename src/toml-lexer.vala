@@ -630,7 +630,7 @@ namespace Toml {
                 }
                 validate_time_parts (hour, minute, second, start_line, start_column);
                 string text = input.substring (start, pos - start);
-                return Token (TokenKind.TIME_LOCAL, text, start_line, start_column);
+                return Token (TokenKind.LOCAL_TIME, text, start_line, start_column);
             }
 
             // Date: YYYY-MM-DD [time [offset]]
@@ -667,10 +667,10 @@ namespace Toml {
                                     format_parse_error (start_line, start_column, "invalid datetime offset"));
                             }
                             string text = input.substring (start, pos - start);
-                            return Token (TokenKind.DATETIME, text, start_line, start_column);
+                            return Token (TokenKind.OFFSET_DATETIME, text, start_line, start_column);
                         }
                         string text = input.substring (start, pos - start);
-                        return Token (TokenKind.DATETIME_LOCAL, text, start_line, start_column);
+                        return Token (TokenKind.LOCAL_DATETIME, text, start_line, start_column);
                     }
                     // Separator was not followed by a valid time (e.g. space before comment)
                     pos = after_date;
@@ -682,7 +682,7 @@ namespace Toml {
                 }
 
                 string text = input.substring (start, pos - start);
-                return Token (TokenKind.DATE_LOCAL, text, start_line, start_column);
+                return Token (TokenKind.LOCAL_DATE, text, start_line, start_column);
             }
 
             return null;

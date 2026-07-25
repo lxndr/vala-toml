@@ -200,12 +200,30 @@ namespace Toml {
             case ValueKind.BOOLEAN:
                 buf.append (value.get_boolean () ? "true" : "false");
                 break;
-            case ValueKind.DATETIME:
-            case ValueKind.DATETIME_LOCAL:
-            case ValueKind.DATE_LOCAL:
-            case ValueKind.TIME_LOCAL:
-                buf.append (value.get_raw ());
+            case ValueKind.OFFSET_DATETIME: {
+                var dt = value.get_offset_datetime ();
+                assert (dt != null);
+                buf.append (format_offset_datetime (dt));
                 break;
+            }
+            case ValueKind.LOCAL_DATETIME: {
+                var ldt = value.get_local_datetime ();
+                assert (ldt != null);
+                buf.append (format_local_datetime (ldt));
+                break;
+            }
+            case ValueKind.LOCAL_DATE: {
+                var d = value.get_local_date ();
+                assert (d != null);
+                buf.append (format_local_date (d));
+                break;
+            }
+            case ValueKind.LOCAL_TIME: {
+                var t = value.get_local_time ();
+                assert (t != null);
+                buf.append (format_local_time (t));
+                break;
+            }
             case ValueKind.TABLE:
                 emit_inline_table ((Table) value, base_indent);
                 break;
