@@ -40,14 +40,16 @@ namespace Toml {
         }
     }
 
-    public bool local_time_equal (LocalTime a, LocalTime b) {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal bool local_time_equal (LocalTime a, LocalTime b) {
         return a.hour == b.hour
             && a.minute == b.minute
             && a.second == b.second
             && a.microsecond == b.microsecond;
     }
 
-    public bool local_datetime_equal (LocalDateTime a, LocalDateTime b) {
+    [CCode (cheader_filename = "vala-toml-internal.h")]
+    internal bool local_datetime_equal (LocalDateTime a, LocalDateTime b) {
         return a.date.get_year () == b.date.get_year ()
             && a.date.get_month () == b.date.get_month ()
             && a.date.get_day () == b.date.get_day ()
