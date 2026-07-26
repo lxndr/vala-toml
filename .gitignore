@@ -1,2 +1,3 @@
-.worktrees/
-build/
+/.worktrees/
+/docs/superpowers/
+/build/
