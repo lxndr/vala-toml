@@ -24,7 +24,7 @@ namespace Toml {
             if (active.contains (node)) {
                 throw new WriteError.FAILED ("cyclic DOM");
             }
-            if (emit_depth >= MAX_VALUE_NESTING) {
+            if (emit_depth >= MAX_VALUE_DEPTH) {
                 throw new WriteError.FAILED ("maximum nesting depth exceeded");
             }
             active.add (node);

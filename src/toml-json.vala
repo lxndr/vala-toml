@@ -29,7 +29,7 @@ namespace Toml {
             if (active.contains (node)) {
                 throw new WriteError.FAILED ("cyclic DOM");
             }
-            if (json_depth >= MAX_VALUE_NESTING) {
+            if (json_depth >= MAX_VALUE_DEPTH) {
                 throw new WriteError.FAILED ("maximum nesting depth exceeded");
             }
             active.add (node);
@@ -254,7 +254,7 @@ namespace Toml {
             }
             unichar c = peek ();
             if (c == '{' || c == '[') {
-                if (nest_depth >= MAX_VALUE_NESTING) {
+                if (nest_depth >= MAX_VALUE_DEPTH) {
                     throw new ParseError.FAILED ("maximum nesting depth exceeded");
                 }
                 nest_depth++;
