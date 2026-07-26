@@ -213,6 +213,20 @@ void test_key_hash_equal_with_nul () {
     assert (!map.has_key (c));
 }
 
+void test_bytes_utf8_valid_allows_embedded_nul () {
+    uint8[] raw = { 'a', 0, 'b' };
+    assert (Toml.bytes_utf8_valid (new Bytes (raw)));
+}
+
+void test_bytes_utf8_valid_rejects_truncated_sequence () {
+    uint8[] raw = { 0xE2, 0x82 }; // truncated UTF-8
+    assert (!Toml.bytes_utf8_valid (new Bytes (raw)));
+}
+
+void test_bytes_utf8_valid_empty () {
+    assert (Toml.bytes_utf8_valid (new Bytes ({})));
+}
+
 void test_style_inplace_mutation () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -249,5 +263,8 @@ public static int main (string[] args) {
     Test.add_func ("/toml/dom/diamond_join_deep_destroy_ok", test_diamond_join_deep_destroy_ok);
     Test.add_func ("/toml/dom/key_from_str_and_bytes", test_key_from_str_and_bytes);
     Test.add_func ("/toml/dom/key_hash_equal_with_nul", test_key_hash_equal_with_nul);
+    Test.add_func ("/toml/dom/bytes_utf8_valid_allows_embedded_nul", test_bytes_utf8_valid_allows_embedded_nul);
+    Test.add_func ("/toml/dom/bytes_utf8_valid_rejects_truncated_sequence", test_bytes_utf8_valid_rejects_truncated_sequence);
+    Test.add_func ("/toml/dom/bytes_utf8_valid_empty", test_bytes_utf8_valid_empty);
     return Test.run ();
 }
