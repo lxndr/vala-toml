@@ -1,4 +1,16 @@
 namespace Toml {
+    /**
+     * Global options for TOML emission.
+     */
+    public struct WriteOptions {
+        /** Default indent width in spaces. */
+        public int indent;
+
+        public WriteOptions () {
+            this.indent = 2;
+        }
+    }
+
     internal class Writer {
         private WriteOptions options;
         private StringBuilder buf;

@@ -1,5 +1,24 @@
 namespace Toml {
     /**
+     * Formatting hints for an array when writing TOML.
+     */
+    public struct ArrayStyle {
+        /** Prefer inline `[ ... ]` form when possible. */
+        [CCode (cname = "is_inline")]
+        public bool inline;
+        /** Prefer multi-line layout when inline. */
+        public bool multiline;
+        /** Indent width override; negative means use WriteOptions.indent. */
+        public int indent;
+
+        public ArrayStyle () {
+            this.inline = false;
+            this.multiline = false;
+            this.indent = -1;
+        }
+    }
+
+    /**
      * A TOML array with write-style hints.
      */
     public class Array : Value {
