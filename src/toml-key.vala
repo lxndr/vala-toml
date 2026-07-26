@@ -5,7 +5,7 @@ namespace Toml {
      * Prefer {@link bytes} when NUL may be present; {@link to_string}
      * truncates at the first NUL.
      */
-    public class Key : Object, Gee.Hashable<Key> {
+    public struct Key {
         private Bytes _bytes;
 
         public Key (Bytes bytes) {

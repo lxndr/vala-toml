@@ -186,12 +186,12 @@ void test_diamond_join_deep_destroy_ok () {
 }
 
 void test_key_from_str_and_bytes () {
-    var k1 = new Toml.Key.from_str ("foo");
+    var k1 = Toml.Key.from_str ("foo");
     assert (k1.to_string () == "foo");
     assert (k1.bytes.length == 3);
 
     uint8[] raw = { 'a', 0, 'b' };
-    var k2 = new Toml.Key (new Bytes (raw));
+    var k2 = Toml.Key (new Bytes (raw));
     assert (k2.bytes.length == 3);
     assert (k2.to_string () == "a"); // truncates at NUL
     unowned uint8[] d = k2.bytes.get_data ();
@@ -200,14 +200,16 @@ void test_key_from_str_and_bytes () {
 
 void test_key_hash_equal_with_nul () {
     uint8[] raw = { 'a', 0, 'b' };
-    var a = new Toml.Key (new Bytes (raw));
-    var b = new Toml.Key (new Bytes (raw));
-    var c = new Toml.Key.from_str ("a");
+    var a = Toml.Key (new Bytes (raw));
+    var b = Toml.Key (new Bytes (raw));
+    var c = Toml.Key.from_str ("a");
     assert (a.equal_to (b));
     assert (a.hash () == b.hash ());
     assert (!a.equal_to (c));
 
-    var map = new Gee.HashMap<Toml.Key, int> ();
+    var map = new Gee.HashMap<Toml.Key?, int> (
+        (k) => k.hash (),
+        (a, b) => a.equal_to (b));
     map[a] = 1;
     assert (map[b] == 1);
     assert (!map.has_key (c));
