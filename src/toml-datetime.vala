@@ -24,6 +24,13 @@ namespace Toml {
             this.second = second;
             this.microsecond = microsecond;
         }
+
+        public bool equal_to (LocalTime other) {
+            return this.hour == other.hour
+                && this.minute == other.minute
+                && this.second == other.second
+                && this.microsecond == other.microsecond;
+        }
     }
 
     public class LocalDateTime : Value {
@@ -38,37 +45,13 @@ namespace Toml {
             this.date = date;
             this.time = time;
         }
-    }
 
-    [CCode (cheader_filename = "vala-toml-internal.h")]
-    internal bool local_time_equal (LocalTime a, LocalTime b) {
-        return a.hour == b.hour
-            && a.minute == b.minute
-            && a.second == b.second
-            && a.microsecond == b.microsecond;
-    }
-
-    [CCode (cheader_filename = "vala-toml-internal.h")]
-    internal bool local_datetime_equal (LocalDateTime a, LocalDateTime b) {
-        return a.date.get_year () == b.date.get_year ()
-            && a.date.get_month () == b.date.get_month ()
-            && a.date.get_day () == b.date.get_day ()
-            && local_time_equal (a.time, b.time);
-    }
-
-    [CCode (cheader_filename = "vala-toml-internal.h")]
-    internal bool offset_datetime_equal (DateTime? a, DateTime? b) {
-        if (a == null || b == null) {
-            return a == b;
+        public bool equal_to (LocalDateTime other) {
+            return this.date.get_year () == other.date.get_year ()
+                && this.date.get_month () == other.date.get_month ()
+                && this.date.get_day () == other.date.get_day ()
+                && this.time.equal_to (other.time);
         }
-        return a.get_year () == b.get_year ()
-            && a.get_month () == b.get_month ()
-            && a.get_day_of_month () == b.get_day_of_month ()
-            && a.get_hour () == b.get_hour ()
-            && a.get_minute () == b.get_minute ()
-            && a.get_second () == b.get_second ()
-            && a.get_microsecond () == b.get_microsecond ()
-            && a.get_utc_offset () == b.get_utc_offset ();
     }
 
     private class DateTimeScanner {
