@@ -250,6 +250,41 @@ void test_parse_header_nesting_at_limit_ok () {
     }
 }
 
+void test_string_embedded_nul_roundtrip () {
+    try {
+        // basic string with \u0000
+        var t = Toml.parse_string ("s = \"a\\u0000b\"\n");
+        var s = (String) t.get (Key.from_str ("s"));
+        unowned uint8[] d = s.bytes.get_data ();
+        assert (d.length == 3);
+        assert (d[0] == 'a' && d[1] == 0 && d[2] == 'b');
+        assert (s.to_string () == "a");
+
+        string written = Toml.write_string (t);
+        var t2 = Toml.parse_string (written);
+        var s2 = (String) t2.get (Key.from_str ("s"));
+        assert (s2.bytes.compare (s.bytes) == 0);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
+void test_key_embedded_nul_roundtrip () {
+    try {
+        var t = Toml.parse_string ("\"a\\u0000b\" = 1\n");
+        uint8[] raw = { 'a', 0, 'b' };
+        var k = Key (new Bytes (raw));
+        assert (t.has (k));
+        assert (((Integer) t.get (k)).value == 1);
+
+        string written = Toml.write_string (t);
+        var t2 = Toml.parse_string (written);
+        assert (((Integer) t2.get (k)).value == 1);
+    } catch (Error e) {
+        assert_no_error (e);
+    }
+}
+
 void test_parse_array_nesting_over_limit_fails () {
     try {
         // Root counts: MAX array hops under root reach depth MAX+1 and must fail.
@@ -293,5 +328,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/header_nesting_over_limit_fails", test_parse_header_nesting_over_limit_fails);
     Test.add_func ("/toml/parser/dotted_nesting_at_limit_ok", test_parse_dotted_nesting_at_limit_ok);
     Test.add_func ("/toml/parser/header_nesting_at_limit_ok", test_parse_header_nesting_at_limit_ok);
+    Test.add_func ("/toml/parser/string_embedded_nul_roundtrip", test_string_embedded_nul_roundtrip);
+    Test.add_func ("/toml/parser/key_embedded_nul_roundtrip", test_key_embedded_nul_roundtrip);
     return Test.run ();
 }

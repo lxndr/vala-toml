@@ -235,6 +235,34 @@ void test_write_cyclic_dom_fails () {
     }
 }
 
+void test_write_rejects_invalid_utf8_string () {
+    try {
+        var t = new Toml.Table ();
+        uint8[] bad = { 0xFF, 0xFF };
+        t.set (Key.from_str ("s"), new String (new Bytes (bad)));
+        Toml.write_string (t);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("invalid UTF-8"));
+    } catch (Toml.ValueError e) {
+        assert_no_error (e);
+    }
+}
+
+void test_write_rejects_invalid_utf8_key () {
+    try {
+        var t = new Toml.Table ();
+        uint8[] bad = { 0xFF };
+        t.set (Key (new Bytes (bad)), new Integer (1));
+        Toml.write_string (t);
+        assert_not_reached ();
+    } catch (Toml.WriteError e) {
+        assert (e.message != null && e.message.contains ("invalid UTF-8"));
+    } catch (Toml.ValueError e) {
+        assert_no_error (e);
+    }
+}
+
 void test_write_error_inline_table_with_aot () {
     try {
         var root = new Toml.Table ();
@@ -274,5 +302,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/writer/standard_table_nesting_over_limit_fails",
         test_write_standard_table_nesting_over_limit_fails);
     Test.add_func ("/toml/writer/cyclic_dom_fails", test_write_cyclic_dom_fails);
+    Test.add_func ("/toml/writer/rejects_invalid_utf8_string", test_write_rejects_invalid_utf8_string);
+    Test.add_func ("/toml/writer/rejects_invalid_utf8_key", test_write_rejects_invalid_utf8_key);
     return Test.run ();
 }
