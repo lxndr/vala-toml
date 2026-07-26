@@ -221,6 +221,64 @@ void test_values_equal_offset_datetime_same () {
     }
 }
 
+void test_local_time_equal_to () {
+    try {
+        var a = new Toml.LocalTime (7, 32, 0, 999000);
+        var b = new Toml.LocalTime (7, 32, 0, 999000);
+        var c = new Toml.LocalTime (7, 32, 1, 0);
+        assert (a.equal_to (b));
+        assert (!a.equal_to (c));
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
+void test_local_date_equal_to () {
+    try {
+        Date d1 = Date ();
+        d1.set_dmy (27, DateMonth.MAY, 1979);
+        Date d2 = Date ();
+        d2.set_dmy (27, DateMonth.MAY, 1979);
+        Date d3 = Date ();
+        d3.set_dmy (28, DateMonth.MAY, 1979);
+        var a = new Toml.LocalDate (d1);
+        var b = new Toml.LocalDate (d2);
+        var c = new Toml.LocalDate (d3);
+        assert (a.equal_to (b));
+        assert (!a.equal_to (c));
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
+void test_local_datetime_equal_to () {
+    try {
+        Date d = Date ();
+        d.set_dmy (27, DateMonth.MAY, 1979);
+        var a = new Toml.LocalDateTime (d, new Toml.LocalTime (7, 32, 0));
+        var b = new Toml.LocalDateTime (d, new Toml.LocalTime (7, 32, 0));
+        var c = new Toml.LocalDateTime (d, new Toml.LocalTime (8, 0, 0));
+        assert (a.equal_to (b));
+        assert (!a.equal_to (c));
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
+void test_offset_datetime_equal_to () {
+    try {
+        var tz_utc = new TimeZone.utc ();
+        var tz_minus7 = new TimeZone.offset ((int) (-7 * TimeSpan.HOUR / TimeSpan.SECOND));
+        var a = new Toml.OffsetDateTime (new DateTime (tz_utc, 1979, 5, 27, 7, 32, 0.0));
+        var b = new Toml.OffsetDateTime (new DateTime (tz_utc, 1979, 5, 27, 7, 32, 0.0));
+        var c = new Toml.OffsetDateTime (new DateTime (tz_minus7, 1979, 5, 27, 0, 32, 0.0));
+        assert (a.equal_to (b));
+        assert (!a.equal_to (c));
+    } catch (Toml.ValueError e) {
+        assert_not_reached ();
+    }
+}
+
 void test_values_equal_offset_datetime_different_offset () {
     try {
         var tz_utc = new TimeZone.utc ();
@@ -268,6 +326,10 @@ public static int main (string[] args) {
     Test.add_func ("/toml/datetime/parse_rejects_invalid_date", test_parse_rejects_invalid_date);
     Test.add_func ("/toml/datetime/parse_rejects_second_60", test_parse_rejects_second_60);
     Test.add_func ("/toml/datetime/parse_rejects_trailing_junk", test_parse_rejects_trailing_junk);
+    Test.add_func ("/toml/datetime/local_time_equal_to", test_local_time_equal_to);
+    Test.add_func ("/toml/datetime/local_date_equal_to", test_local_date_equal_to);
+    Test.add_func ("/toml/datetime/local_datetime_equal_to", test_local_datetime_equal_to);
+    Test.add_func ("/toml/datetime/offset_datetime_equal_to", test_offset_datetime_equal_to);
     Test.add_func ("/toml/datetime/values_equal_offset_datetime_same", test_values_equal_offset_datetime_same);
     Test.add_func ("/toml/datetime/values_equal_offset_datetime_different_offset", test_values_equal_offset_datetime_different_offset);
     return Test.run ();

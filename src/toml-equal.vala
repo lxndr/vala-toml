@@ -27,13 +27,13 @@ namespace Toml {
         var ba = a as Boolean; var bb = b as Boolean;
         if (ba != null || bb != null) return ba != null && bb != null && ba.value == bb.value;
         var oa = a as OffsetDateTime; var ob = b as OffsetDateTime;
-        if (oa != null || ob != null) return oa != null && ob != null && offset_datetime_equal (oa.value, ob.value);
+        if (oa != null || ob != null) return oa != null && ob != null && oa.equal_to (ob);
         var lda = a as LocalDateTime; var ldb = b as LocalDateTime;
-        if (lda != null || ldb != null) return lda != null && ldb != null && local_datetime_equal (lda, ldb);
+        if (lda != null || ldb != null) return lda != null && ldb != null && lda.equal_to (ldb);
         var da = a as LocalDate; var db = b as LocalDate;
-        if (da != null || db != null) return da != null && db != null && da.value.compare (db.value) == 0;
+        if (da != null || db != null) return da != null && db != null && da.equal_to (db);
         var ta = a as LocalTime; var tb = b as LocalTime;
-        if (ta != null || tb != null) return ta != null && tb != null && local_time_equal (ta, tb);
+        if (ta != null || tb != null) return ta != null && tb != null && ta.equal_to (tb);
         var taba = a as Table; var tabb = b as Table;
         if (taba != null || tabb != null) return taba != null && tabb != null && tables_equal (taba, tabb, active);
         var arra = a as Array; var arrb = b as Array;
