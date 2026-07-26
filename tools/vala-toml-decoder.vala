@@ -1,6 +1,6 @@
 int main (string[] args) {
     try {
-        var table = Toml.parse_bytes (read_stdin_bytes ());
+        var table = Toml.parse_string (read_stdin ());
         stdout.puts (Toml.table_to_tagged_json (table));
         return 0;
     } catch (Error e) {
@@ -9,11 +9,11 @@ int main (string[] args) {
     }
 }
 
-uint8[] read_stdin_bytes () {
+string read_stdin () {
     var sb = new StringBuilder ();
     int c;
     while ((c = stdin.getc ()) != -1) {
         sb.append_c ((char) c);
     }
-    return sb.data[0:sb.len];
+    return sb.str;
 }
