@@ -3,6 +3,7 @@ vala_toml_sources = files(
   'toml-error.vala',
   'toml-datetime.vala',
   'toml-style.vala',
+  'toml-key.vala',
   'toml-value.vala',
   'toml-table.vala',
   'toml-array.vala',

@@ -185,6 +185,34 @@ void test_diamond_join_deep_destroy_ok () {
     }
 }
 
+void test_key_from_str_and_bytes () {
+    var k1 = new Toml.Key.from_str ("foo");
+    assert (k1.to_string () == "foo");
+    assert (k1.bytes.length == 3);
+
+    uint8[] raw = { 'a', 0, 'b' };
+    var k2 = new Toml.Key (new Bytes (raw));
+    assert (k2.bytes.length == 3);
+    assert (k2.to_string () == "a"); // truncates at NUL
+    unowned uint8[] d = k2.bytes.get_data ();
+    assert (d[0] == 'a' && d[1] == 0 && d[2] == 'b');
+}
+
+void test_key_hash_equal_with_nul () {
+    uint8[] raw = { 'a', 0, 'b' };
+    var a = new Toml.Key (new Bytes (raw));
+    var b = new Toml.Key (new Bytes (raw));
+    var c = new Toml.Key.from_str ("a");
+    assert (a.equal_to (b));
+    assert (a.hash () == b.hash ());
+    assert (!a.equal_to (c));
+
+    var map = new Gee.HashMap<Toml.Key, int> ();
+    map[a] = 1;
+    assert (map[b] == 1);
+    assert (!map.has_key (c));
+}
+
 void test_style_inplace_mutation () {
     var t = new Toml.Table ();
     t.style.inline = true;
@@ -219,5 +247,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/dom/shared_table_survives_sibling_destroy", test_shared_table_survives_sibling_destroy);
     Test.add_func ("/toml/dom/shared_nested_survives_sibling_destroy", test_shared_nested_survives_sibling_destroy);
     Test.add_func ("/toml/dom/diamond_join_deep_destroy_ok", test_diamond_join_deep_destroy_ok);
+    Test.add_func ("/toml/dom/key_from_str_and_bytes", test_key_from_str_and_bytes);
+    Test.add_func ("/toml/dom/key_hash_equal_with_nul", test_key_hash_equal_with_nul);
     return Test.run ();
 }
