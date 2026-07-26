@@ -104,7 +104,7 @@ Toml.Table nest_standard_tables (int depth) throws Toml.ValueError {
 
 void test_deep_table_destroy_ok () {
     try {
-        var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
+        var root = nest_standard_tables (Toml.MAX_VALUE_DEPTH);
         root = null;
     } catch (Toml.ValueError e) {
         assert_not_reached ();
@@ -171,7 +171,7 @@ void test_diamond_join_deep_destroy_ok () {
         var leaf = new Toml.Table ();
         leaf.set (Key.from_str ("v"), new Integer (1));
         var cur = leaf;
-        for (int i = 0; i < Toml.MAX_VALUE_NESTING; i++) {
+        for (int i = 0; i < Toml.MAX_VALUE_DEPTH; i++) {
             var parent = new Toml.Table ();
             parent.set (Key.from_str ("a"), cur);
             parent.set (Key.from_str ("b"), cur);

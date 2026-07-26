@@ -1,8 +1,4 @@
 namespace Toml {
-    // Cap array/inline-table nesting so untrusted input cannot SIGSEGV via stack overflow.
-    [CCode (cheader_filename = "vala-toml-internal.h")]
-    internal const int MAX_VALUE_NESTING = 1000;
-
     [CCode (cheader_filename = "vala-toml-internal.h")]
     internal class Parser {
         private Lexer lexer;
@@ -89,7 +85,7 @@ namespace Toml {
         }
 
         private void enter_container_hop () throws ParseError {
-            if (container_depth >= MAX_VALUE_NESTING) {
+            if (container_depth >= MAX_VALUE_DEPTH) {
                 throw_nesting_exceeded ();
             }
             container_depth++;
@@ -101,7 +97,7 @@ namespace Toml {
 
         private Table create_tracked_table (Table parent) throws ParseError {
             int pd = table_depth[parent];
-            if (pd >= MAX_VALUE_NESTING) {
+            if (pd >= MAX_VALUE_DEPTH) {
                 throw_nesting_exceeded ();
             }
             var child = new Table ();
@@ -160,7 +156,7 @@ namespace Toml {
             Array array;
             if (!table.has (final_key)) {
                 // Array hop: parent d → array at d+1
-                if (pd >= MAX_VALUE_NESTING) {
+                if (pd >= MAX_VALUE_DEPTH) {
                     throw_nesting_exceeded ();
                 }
                 array = new Array ();
@@ -180,7 +176,7 @@ namespace Toml {
                 array = as_array;
             }
             // Element table hop: array at d+1 → element at d+2
-            if (pd + 1 >= MAX_VALUE_NESTING) {
+            if (pd + 1 >= MAX_VALUE_DEPTH) {
                 throw_nesting_exceeded ();
             }
             var child = new Table ();
@@ -231,7 +227,7 @@ namespace Toml {
             int saved = container_depth;
             // Leaf parent sits at target depth + intermediate hops; sync before value nests.
             container_depth = table_depth[target] + (path.size - 1);
-            if (container_depth > MAX_VALUE_NESTING) {
+            if (container_depth > MAX_VALUE_DEPTH) {
                 throw_nesting_exceeded ();
             }
             try {

@@ -184,7 +184,7 @@ void test_write_inline_array_nesting_at_limit_ok () {
     try {
         var root = new Toml.Table ();
         // root + (MAX-1) arrays = MAX enters
-        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_DEPTH - 1));
         string s = Toml.write_string (root);
         assert (s != null && s.has_prefix ("a = "));
     } catch (Error e) {
@@ -195,7 +195,7 @@ void test_write_inline_array_nesting_at_limit_ok () {
 void test_write_inline_array_nesting_over_limit_fails () {
     try {
         var root = new Toml.Table ();
-        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_DEPTH));
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
@@ -208,7 +208,7 @@ void test_write_inline_array_nesting_over_limit_fails () {
 void test_write_standard_table_nesting_over_limit_fails () {
     try {
         // root + MAX nested tables => MAX+1 enters
-        var root = nest_standard_tables (Toml.MAX_VALUE_NESTING);
+        var root = nest_standard_tables (Toml.MAX_VALUE_DEPTH);
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {

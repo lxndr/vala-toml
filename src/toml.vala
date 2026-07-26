@@ -1,5 +1,12 @@
 namespace Toml {
     /**
+     * Maximum container nesting depth for parse, write, and tagged-JSON.
+     *
+     * Every Table/Array hop on the active path counts toward this budget.
+     */
+    public const int MAX_VALUE_DEPTH = 1024;
+
+    /**
      * Parse TOML text into a DOM table.
      *
      * Validates that {@link text} is UTF-8. Control characters and bare

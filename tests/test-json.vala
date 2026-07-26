@@ -62,7 +62,7 @@ Toml.Array nest_inline_arrays (int depth) throws Error {
 
 void test_json_decode_nesting_over_limit_fails () {
     try {
-        Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_NESTING + 1));
+        Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_DEPTH + 1));
         assert_not_reached ();
     } catch (Toml.ParseError e) {
         assert (e.message != null && e.message.contains ("nesting"));
@@ -74,7 +74,7 @@ void test_json_decode_nesting_over_limit_fails () {
 void test_json_encode_nesting_over_limit_fails () {
     try {
         var root = new Toml.Table ();
-        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_DEPTH));
         Toml.table_to_tagged_json (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
@@ -86,7 +86,7 @@ void test_json_encode_nesting_over_limit_fails () {
 
 void test_json_decode_nesting_at_limit_ok () {
     try {
-        var t = Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_NESTING));
+        var t = Toml.table_from_tagged_json (nest_json_objects (Toml.MAX_VALUE_DEPTH));
         assert (t != null);
     } catch (Error e) {
         assert_no_error (e);
@@ -97,7 +97,7 @@ void test_json_encode_nesting_at_limit_ok () {
     try {
         var root = new Toml.Table ();
         // root + (MAX-1) arrays = MAX enters
-        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_DEPTH - 1));
         string json = Toml.table_to_tagged_json (root);
         assert (json != null && json.has_prefix ("{"));
     } catch (Error e) {
