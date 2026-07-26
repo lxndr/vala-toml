@@ -1,9 +1,11 @@
+using Toml;
+
 void test_values_equal_ignores_style () {
     try {
         var a = new Toml.Table ();
-        a.set ("k", Toml.Value.from_integer (1));
+        a.set (Key.from_str ("k"), new Integer (1));
         var b = new Toml.Table ();
-        b.set ("k", Toml.Value.from_integer (1));
+        b.set (Key.from_str ("k"), new Integer (1));
         b.style.inline = true;
         assert (Toml.values_equal (a, b));
     } catch (Error e) {
@@ -12,8 +14,8 @@ void test_values_equal_ignores_style () {
 }
 
 void test_values_equal_detects_difference () {
-    var a = Toml.Value.from_string ("x");
-    var b = Toml.Value.from_string ("y");
+    var a = new String.from_str ("x");
+    var b = new String.from_str ("y");
     assert (!Toml.values_equal (a, b));
 }
 

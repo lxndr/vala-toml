@@ -109,18 +109,18 @@ namespace Toml {
             return child;
         }
 
-        private Table resolve_header_parent (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table resolve_header_parent (Gee.ArrayList<Key?> path) throws ParseError {
             Table table = root;
             for (int i = 0; i < path.size - 1; i++) {
-                uint8[] key = path[i].get_data ();
-                if (!table.has_bytes (key)) {
+                Key key = path[i];
+                if (!table.has (key)) {
                     var child = create_tracked_table (table);
-                    table.set_bytes_unchecked (key, child);
+                    table.set_unchecked (key, child);
                     table = child;
                     continue;
                 }
-                Value? existing = table.get_bytes (key);
-                Table? as_table = existing.as_table ();
+                Value? existing = table.get (key);
+                Table? as_table = existing as Table;
                 if (as_table != null) {
                     if (closed_tables.contains (as_table)) {
                         throw new ParseError.FAILED (
@@ -129,7 +129,7 @@ namespace Toml {
                     table = as_table;
                     continue;
                 }
-                Array? as_array = existing.as_array ();
+                Array? as_array = existing as Array;
                 if (as_array != null) {
                     if (!aot_arrays.contains (as_array)) {
                         throw new ParseError.FAILED (
@@ -139,7 +139,7 @@ namespace Toml {
                         throw new ParseError.FAILED (
                             format_parse_error (current.line, current.column, "empty array of tables"));
                     }
-                    Table? last = as_array.get (as_array.size - 1).as_table ();
+                    Table? last = as_array.get (as_array.size - 1) as Table;
                     if (last == null) {
                         throw new ParseError.FAILED (
                             format_parse_error (current.line, current.column, "array of tables element is not a table"));
@@ -153,22 +153,22 @@ namespace Toml {
             return table;
         }
 
-        private Table define_array_of_tables (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table define_array_of_tables (Gee.ArrayList<Key?> path) throws ParseError {
             Table table = resolve_header_parent (path);
-            uint8[] final_key = path[path.size - 1].get_data ();
+            Key final_key = path[path.size - 1];
             int pd = table_depth[table];
             Array array;
-            if (!table.has_bytes (final_key)) {
+            if (!table.has (final_key)) {
                 // Array hop: parent d → array at d+1
                 if (pd >= MAX_VALUE_NESTING) {
                     throw_nesting_exceeded ();
                 }
                 array = new Array ();
-                table.set_bytes_unchecked (final_key, array);
+                table.set_unchecked (final_key, array);
                 aot_arrays.add (array);
             } else {
-                Value? existing = table.get_bytes (final_key);
-                Array? as_array = existing.as_array ();
+                Value? existing = table.get (final_key);
+                Array? as_array = existing as Array;
                 if (as_array == null) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, "redefining key as array of tables"));
@@ -190,23 +190,23 @@ namespace Toml {
             return child;
         }
 
-        private Table define_standard_table (Gee.ArrayList<Bytes> path) throws ParseError {
+        private Table define_standard_table (Gee.ArrayList<Key?> path) throws ParseError {
             Table table = resolve_header_parent (path);
             if (closed_tables.contains (table)) {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, "cannot extend inline table"));
             }
 
-            uint8[] final_key = path[path.size - 1].get_data ();
-            if (!table.has_bytes (final_key)) {
+            Key final_key = path[path.size - 1];
+            if (!table.has (final_key)) {
                 var child = create_tracked_table (table);
-                table.set_bytes_unchecked (final_key, child);
+                table.set_unchecked (final_key, child);
                 explicit_tables.add (child);
                 return child;
             }
 
-            Value? existing = table.get_bytes (final_key);
-            Table? as_table = existing.as_table ();
+            Value? existing = table.get (final_key);
+            Table? as_table = existing as Table;
             if (as_table == null) {
                 throw new ParseError.FAILED (
                     format_parse_error (current.line, current.column, "redefining key as table"));
@@ -324,26 +324,26 @@ namespace Toml {
             }
         }
 
-        private Gee.ArrayList<Bytes> parse_key_path () throws ParseError {
-            var path = new Gee.ArrayList<Bytes> ();
-            path.add (new Bytes (parse_key_segment ()));
+        private Gee.ArrayList<Key?> parse_key_path () throws ParseError {
+            var path = new Gee.ArrayList<Key?> ();
+            path.add (parse_key_segment ());
             while (current.kind == TokenKind.DOT) {
                 advance_key ();
-                path.add (new Bytes (parse_key_segment ()));
+                path.add (parse_key_segment ());
             }
             return path;
         }
 
-        private uint8[] parse_key_segment () throws ParseError {
+        private Key parse_key_segment () throws ParseError {
             if (current.kind == TokenKind.KEY) {
-                uint8[] key = current.text.data;
+                var key = Key.from_str (current.text);
                 advance_key ();
                 return key;
             }
             if (current.kind == TokenKind.STRING) {
-                uint8[] key = current.bytes ?? current.text.data;
+                Bytes b = new Bytes (current.bytes ?? current.text.data);
                 advance_key ();
-                return Value.bytes_copy (key);
+                return Key (b);
             }
             throw new ParseError.FAILED (
                 format_parse_error (current.line, current.column, "expected key"));
@@ -352,27 +352,23 @@ namespace Toml {
         private Value parse_scalar () throws ParseError {
             switch (current.kind) {
             case TokenKind.STRING: {
-                Value v;
-                if (current.bytes != null) {
-                    v = Value.from_string_bytes (current.bytes);
-                } else {
-                    v = Value.from_string (current.text);
-                }
+                Bytes b = new Bytes (current.bytes ?? current.text.data);
+                Value v = new String (b);
                 advance_value ();
                 return v;
             }
             case TokenKind.INTEGER: {
-                var v = Value.from_integer (parse_integer (current.text, current.line, current.column));
+                var v = new Integer (parse_integer (current.text, current.line, current.column));
                 advance_value ();
                 return v;
             }
             case TokenKind.FLOAT: {
-                var v = Value.from_float (parse_float (current.text, current.line, current.column));
+                var v = new Float (parse_float (current.text, current.line, current.column));
                 advance_value ();
                 return v;
             }
             case TokenKind.BOOLEAN: {
-                var v = Value.from_boolean (current.text == "true");
+                var v = new Boolean (current.text == "true");
                 advance_value ();
                 return v;
             }
@@ -380,7 +376,7 @@ namespace Toml {
                 DateTime dt = parse_offset_datetime (current.text);
                 Value v;
                 try {
-                    v = Value.from_offset_datetime (dt);
+                    v = new OffsetDateTime (dt);
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, e.message));
@@ -389,14 +385,7 @@ namespace Toml {
                 return v;
             }
             case TokenKind.LOCAL_DATETIME: {
-                LocalDateTime ldt = parse_local_datetime (current.text);
-                Value v;
-                try {
-                    v = Value.from_local_datetime (ldt);
-                } catch (ValueError e) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, e.message));
-                }
+                Value v = parse_local_datetime (current.text);
                 advance_value ();
                 return v;
             }
@@ -404,7 +393,7 @@ namespace Toml {
                 Date d = parse_local_date (current.text);
                 Value v;
                 try {
-                    v = Value.from_local_date (d);
+                    v = new LocalDate (d);
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, e.message));
@@ -413,14 +402,7 @@ namespace Toml {
                 return v;
             }
             case TokenKind.LOCAL_TIME: {
-                LocalTime t = parse_local_time (current.text);
-                Value v;
-                try {
-                    v = Value.from_local_time (t);
-                } catch (ValueError e) {
-                    throw new ParseError.FAILED (
-                        format_parse_error (current.line, current.column, e.message));
-                }
+                Value v = parse_local_time (current.text);
                 advance_value ();
                 return v;
             }
@@ -430,14 +412,14 @@ namespace Toml {
             }
         }
 
-        private void insert_path (Table target, Gee.ArrayList<Bytes> path, Value value) throws ParseError {
+        private void insert_path (Table target, Gee.ArrayList<Key?> path, Value value) throws ParseError {
             int saved = container_depth;
             container_depth = table_depth[target];
             try {
                 Table table = target;
                 for (int i = 0; i < path.size - 1; i++) {
-                    uint8[] key = path[i].get_data ();
-                    if (!table.has_bytes (key)) {
+                    Key key = path[i];
+                    if (!table.has (key)) {
                         if (table != target && explicit_tables.contains (table)) {
                             throw new ParseError.FAILED (
                                 format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
@@ -447,14 +429,14 @@ namespace Toml {
                                 format_parse_error (current.line, current.column, "cannot extend inline table"));
                         }
                         var child = create_tracked_table (table);
-                        table.set_bytes_unchecked (key, child);
+                        table.set_unchecked (key, child);
                         dotted_tables.add (child);
                         table = child;
                         container_depth = table_depth[table];
                         continue;
                     }
-                    Value? existing = table.get_bytes (key);
-                    Table? as_table = existing.as_table ();
+                    Value? existing = table.get (key);
+                    Table? as_table = existing as Table;
                     if (as_table == null) {
                         throw new ParseError.FAILED (
                             format_parse_error (current.line, current.column, "duplicate key"));
@@ -478,12 +460,12 @@ namespace Toml {
                         format_parse_error (current.line, current.column, "cannot extend explicit table with dotted key"));
                 }
 
-                uint8[] final_key = path[path.size - 1].get_data ();
-                if (table.has_bytes (final_key)) {
+                Key final_key = path[path.size - 1];
+                if (table.has (final_key)) {
                     throw new ParseError.FAILED (
                         format_parse_error (current.line, current.column, "duplicate key"));
                 }
-                table.set_bytes_unchecked (final_key, value);
+                table.set_unchecked (final_key, value);
             } finally {
                 container_depth = saved;
             }

@@ -1,3 +1,5 @@
+using Toml;
+
 void test_parse_error_message () {
     try {
         throw new Toml.ParseError.FAILED ("1:5: unexpected token");
@@ -25,14 +27,13 @@ void test_style_defaults () {
 void test_table_insertion_order_and_get () {
     try {
         var t = new Toml.Table ();
-        t.set ("b", Toml.Value.from_string ("2"));
-        t.set ("a", Toml.Value.from_integer (1));
+        t.set (Key.from_str ("b"), new String.from_str ("2"));
+        t.set (Key.from_str ("a"), new Integer (1));
         assert (t.size == 2);
-        assert (t.keys.get (0) == "b");
-        assert (t.keys.get (1) == "a");
-        assert (t.get ("a").get_integer () == 1);
-        assert (t.get ("b").get_string () == "2");
-        assert (t.as_table () == t);
+        assert (t.keys.get (0).equal_to (Key.from_str ("b")));
+        assert (t.keys.get (1).equal_to (Key.from_str ("a")));
+        assert (((Integer) t.get (Key.from_str ("a"))).value == 1);
+        assert (((String) t.get (Key.from_str ("b"))).to_string () == "2");
         assert (t.style.inline == false);
     } catch (Error e) {
         assert_no_error (e);
@@ -42,11 +43,11 @@ void test_table_insertion_order_and_get () {
 void test_array_basic () {
     try {
         var a = new Toml.Array ();
-        a.add (Toml.Value.from_boolean (true));
-        a.add (Toml.Value.from_float (1.5));
+        a.add (new Boolean (true));
+        a.add (new Float (1.5));
         assert (a.size == 2);
-        assert (a.get (0).get_boolean () == true);
-        assert (a.get (1).get_float () == 1.5);
+        assert (((Boolean) a.get (0)).value == true);
+        assert (((Float) a.get (1)).value == 1.5);
         assert (!a.style.multiline);
     } catch (Error e) {
         assert_no_error (e);
@@ -57,9 +58,9 @@ void test_nested_table () {
     try {
         var root = new Toml.Table ();
         var child = new Toml.Table ();
-        child.set ("x", Toml.Value.from_integer (9));
-        root.set ("child", child);
-        assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
+        child.set (Key.from_str ("x"), new Integer (9));
+        root.set (Key.from_str ("child"), child);
+        assert (((Integer) ((Table) root.get (Key.from_str ("child"))).get (Key.from_str ("x"))).value == 9);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -68,7 +69,7 @@ void test_nested_table () {
 void test_table_set_self_cycle_fails () {
     var t = new Toml.Table ();
     try {
-        t.set ("x", t);
+        t.set (Key.from_str ("x"), t);
         assert_not_reached ();
     } catch (Toml.ValueError e) {
         assert (e.message != null && e.message.contains ("cyclic"));
@@ -79,7 +80,7 @@ void test_table_array_cycle_fails () {
     var t = new Toml.Table ();
     var a = new Toml.Array ();
     try {
-        t.set ("a", a);
+        t.set (Key.from_str ("a"), a);
         a.add (t);
         assert_not_reached ();
     } catch (Toml.ValueError e) {
@@ -89,15 +90,15 @@ void test_table_array_cycle_fails () {
 
 Toml.Table nest_standard_tables (int depth) throws Toml.ValueError {
     var leaf = new Toml.Table ();
-    leaf.set ("v", Toml.Value.from_integer (1));
+    leaf.set (Key.from_str ("v"), new Integer (1));
     var cur = leaf;
     for (int i = 0; i < depth - 1; i++) {
         var parent = new Toml.Table ();
-        parent.set ("t", cur);
+        parent.set (Key.from_str ("t"), cur);
         cur = parent;
     }
     var root = new Toml.Table ();
-    root.set ("t", cur);
+    root.set (Key.from_str ("t"), cur);
     return root;
 }
 
@@ -113,18 +114,18 @@ void test_deep_table_destroy_ok () {
 void test_shared_table_survives_sibling_destroy () {
     try {
         var shared = new Toml.Table ();
-        shared.set ("keep", Toml.Value.from_integer (42));
+        shared.set (Key.from_str ("keep"), new Integer (42));
 
         var dying = new Toml.Table ();
-        dying.set ("shared", shared);
+        dying.set (Key.from_str ("shared"), shared);
 
         var live = new Toml.Table ();
-        live.set ("shared", shared);
+        live.set (Key.from_str ("shared"), shared);
 
         dying = null;
 
-        assert (live.get ("shared").as_table ().get ("keep").get_integer () == 42);
-        assert (shared.get ("keep").get_integer () == 42);
+        assert (((Integer) ((Table) live.get (Key.from_str ("shared"))).get (Key.from_str ("keep"))).value == 42);
+        assert (((Integer) shared.get (Key.from_str ("keep"))).value == 42);
     } catch (Toml.ValueError e) {
         assert_not_reached ();
     }
@@ -140,23 +141,20 @@ void test_shared_nested_survives_sibling_destroy () {
         var shared = new Toml.Table ();
         {
             var nested = new Toml.Table ();
-            nested.set ("keep", Toml.Value.from_integer (7));
-            shared.set ("nested", nested);
+            nested.set (Key.from_str ("keep"), new Integer (7));
+            shared.set (Key.from_str ("nested"), nested);
         }
 
         var dying = new Toml.Table ();
-        dying.set ("shared", shared);
+        dying.set (Key.from_str ("shared"), shared);
 
         var live = new Toml.Table ();
-        live.set ("shared", shared);
+        live.set (Key.from_str ("shared"), shared);
 
         dying = null;
 
-        assert (live.get ("shared").as_table ()
-                    .get ("nested").as_table ()
-                    .get ("keep").get_integer () == 7);
-        assert (shared.get ("nested").as_table ()
-                    .get ("keep").get_integer () == 7);
+        assert (((Integer) ((Table) ((Table) live.get (Key.from_str ("shared"))).get (Key.from_str ("nested"))).get (Key.from_str ("keep"))).value == 7);
+        assert (((Integer) ((Table) shared.get (Key.from_str ("nested"))).get (Key.from_str ("keep"))).value == 7);
     } catch (Toml.ValueError e) {
         assert_not_reached ();
     }
@@ -171,12 +169,12 @@ void test_shared_nested_survives_sibling_destroy () {
 void test_diamond_join_deep_destroy_ok () {
     try {
         var leaf = new Toml.Table ();
-        leaf.set ("v", Toml.Value.from_integer (1));
+        leaf.set (Key.from_str ("v"), new Integer (1));
         var cur = leaf;
         for (int i = 0; i < Toml.MAX_VALUE_NESTING; i++) {
             var parent = new Toml.Table ();
-            parent.set ("a", cur);
-            parent.set ("b", cur);
+            parent.set (Key.from_str ("a"), cur);
+            parent.set (Key.from_str ("b"), cur);
             cur = parent;
         }
         cur = null;

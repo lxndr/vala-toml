@@ -16,7 +16,7 @@ namespace Toml {
             active = new Gee.HashSet<Value> (
                 (Gee.HashDataFunc<Value>) GLib.direct_hash,
                 (Gee.EqualDataFunc<Value>) GLib.direct_equal);
-            emit_table_body (root, new Gee.ArrayList<Bytes> ());
+            emit_table_body (root, new Gee.ArrayList<Key?> ());
             return buf.str;
         }
 
@@ -46,49 +46,46 @@ namespace Toml {
             }
         }
 
-        private void emit_table_body (Table table, Gee.ArrayList<Bytes> path) throws WriteError {
+        private void emit_table_body (Table table, Gee.ArrayList<Key?> path) throws WriteError {
             enter_container (table);
             try {
-            var nested = new Gee.ArrayList<Bytes> ();
-            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                Bytes key_b = table.key_bytes_list[ki];
-                uint8[] key = key_b.get_data ();
-                var value = table.get_bytes (key);
+            var nested = new Gee.ArrayList<Key?> ();
+            foreach (var key in table.key_order_list) {
+                var value = table.get (key);
                 var as_table = value as Table;
                 if (as_table != null && !as_table.style.inline) {
                     if (table.style.dotted_keys && is_dotted_eligible (as_table)) {
-                        var prefix = new Gee.ArrayList<Bytes> ();
-                        prefix.add (key_b);
+                        var prefix = new Gee.ArrayList<Key?> ();
+                        prefix.add (key);
                         emit_dotted_leaves (prefix, as_table);
                         continue;
                     }
-                    nested.add (key_b);
+                    nested.add (key);
                     continue;
                 }
                 var as_array = value as Array;
                 if (as_array != null && is_array_of_tables (as_array) && !as_array.style.inline) {
-                    nested.add (key_b);
+                    nested.add (key);
                     continue;
                 }
-                emit_key_bytes (key);
+                emit_key (key);
                 buf.append (" = ");
                 emit_value (value, 0);
                 buf.append_c ('\n');
             }
 
-            foreach (var key_b in nested) {
-                uint8[] key = key_b.get_data ();
-                var value = table.get_bytes (key);
+            foreach (var key in nested) {
+                var value = table.get (key);
                 var as_table = value as Table;
                 if (as_table != null) {
-                    var child_path = append_path (path, key_b);
+                var child_path = append_path (path, key);
                     emit_table_header (child_path);
                     emit_table_body (as_table, child_path);
                     continue;
                 }
                 var as_array = value as Array;
                 if (as_array != null) {
-                    emit_array_of_tables (as_array, append_path (path, key_b));
+                    emit_array_of_tables (as_array, append_path (path, key));
                 }
             }
             } finally {
@@ -102,10 +99,8 @@ namespace Toml {
                 if (table.size == 0) {
                     return false;
                 }
-                for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                    Bytes key_b = table.key_bytes_list[ki];
-                    uint8[] key = key_b.get_data ();
-                    var value = table.get_bytes (key);
+                foreach (var key in table.key_order_list) {
+                    var value = table.get (key);
                     var child = value as Table;
                     if (child != null && !child.style.inline) {
                         if (!is_dotted_eligible (child)) {
@@ -124,19 +119,17 @@ namespace Toml {
             }
         }
 
-        private void emit_dotted_leaves (Gee.ArrayList<Bytes> prefix, Table table) throws WriteError {
+        private void emit_dotted_leaves (Gee.ArrayList<Key?> prefix, Table table) throws WriteError {
             enter_container (table);
             try {
-            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                Bytes key_b = table.key_bytes_list[ki];
-                uint8[] key = key_b.get_data ();
-                var value = table.get_bytes (key);
+            foreach (var key in table.key_order_list) {
+                var value = table.get (key);
                 var child = value as Table;
                 if (child != null && !child.style.inline) {
-                    emit_dotted_leaves (append_path (prefix, key_b), child);
+                    emit_dotted_leaves (append_path (prefix, key), child);
                     continue;
                 }
-                emit_key_path (append_path (prefix, key_b));
+                emit_key_path (append_path (prefix, key));
                 buf.append (" = ");
                 emit_value (value, 0);
                 buf.append_c ('\n');
@@ -146,7 +139,7 @@ namespace Toml {
             }
         }
 
-        private void emit_array_of_tables (Array array, Gee.ArrayList<Bytes> path) throws WriteError {
+        private void emit_array_of_tables (Array array, Gee.ArrayList<Key?> path) throws WriteError {
             for (int i = 0; i < array.size; i++) {
                 var elem = array.get (i) as Table;
                 if (elem == null) {
@@ -169,29 +162,29 @@ namespace Toml {
             return true;
         }
 
-        private void emit_table_header (Gee.ArrayList<Bytes> path) {
+        private void emit_table_header (Gee.ArrayList<Key?> path) throws WriteError {
             buf.append_c ('[');
             emit_key_path (path);
             buf.append ("]\n");
         }
 
-        private void emit_aot_header (Gee.ArrayList<Bytes> path) {
+        private void emit_aot_header (Gee.ArrayList<Key?> path) throws WriteError {
             buf.append ("[[");
             emit_key_path (path);
             buf.append ("]]\n");
         }
 
-        private void emit_key_path (Gee.ArrayList<Bytes> path) {
+        private void emit_key_path (Gee.ArrayList<Key?> path) throws WriteError {
             for (int i = 0; i < path.size; i++) {
                 if (i > 0) {
                     buf.append_c ('.');
                 }
-                emit_key_bytes (path[i].get_data ());
+                emit_key (path[i]);
             }
         }
 
-        private Gee.ArrayList<Bytes> append_path (Gee.ArrayList<Bytes> path, Bytes key) {
-            var next = new Gee.ArrayList<Bytes> ();
+        private Gee.ArrayList<Key?> append_path (Gee.ArrayList<Key?> path, Key key) {
+            var next = new Gee.ArrayList<Key?> ();
             foreach (var p in path) {
                 next.add (p);
             }
@@ -199,11 +192,19 @@ namespace Toml {
             return next;
         }
 
-        private void emit_key_bytes (uint8[] key) {
-            if (is_bare_key_bytes (key)) {
-                buf.append_len ((string) key, key.length);
+        private void require_utf8 (Bytes bytes, string what) throws WriteError {
+            if (!bytes_utf8_valid (bytes)) {
+                throw new WriteError.FAILED ("invalid UTF-8 in " + what);
+            }
+        }
+
+        private void emit_key (Key key) throws WriteError {
+            require_utf8 (key.bytes, "key");
+            unowned uint8[] data = key.bytes.get_data ();
+            if (is_bare_key_bytes (data)) {
+                buf.append_len ((string) data, data.length);
             } else {
-                emit_basic_string_bytes (key);
+                emit_basic_string_bytes (data);
             }
         }
 
@@ -224,59 +225,32 @@ namespace Toml {
         }
 
         private void emit_value (Value value, int base_indent) throws WriteError {
-            switch (value.kind) {
-            case ValueKind.STRING:
-                emit_basic_string_bytes (value.get_string_bytes ());
-                break;
-            case ValueKind.INTEGER:
-                buf.append (value.get_integer ().to_string ());
-                break;
-            case ValueKind.FLOAT:
-                emit_float (value.get_float ());
-                break;
-            case ValueKind.BOOLEAN:
-                buf.append (value.get_boolean () ? "true" : "false");
-                break;
-            case ValueKind.OFFSET_DATETIME: {
-                var dt = value.get_offset_datetime ();
-                assert (dt != null);
-                buf.append (format_offset_datetime (dt));
-                break;
-            }
-            case ValueKind.LOCAL_DATETIME: {
-                var ldt = value.get_local_datetime ();
-                assert (ldt != null);
-                buf.append (format_local_datetime (ldt));
-                break;
-            }
-            case ValueKind.LOCAL_DATE: {
-                var d = value.get_local_date ();
-                assert (d != null);
-                buf.append (format_local_date (d));
-                break;
-            }
-            case ValueKind.LOCAL_TIME: {
-                var t = value.get_local_time ();
-                assert (t != null);
-                buf.append (format_local_time (t));
-                break;
-            }
-            case ValueKind.TABLE:
-                emit_inline_table ((Table) value, base_indent);
-                break;
-            case ValueKind.ARRAY:
-                emit_inline_array ((Array) value, base_indent);
-                break;
-            default:
-                throw new WriteError.FAILED ("unsupported value kind");
-            }
+            var s = value as String;
+            if (s != null) { require_utf8 (s.bytes, "string"); emit_basic_string_bytes (s.bytes.get_data ()); return; }
+            var i = value as Integer;
+            if (i != null) { buf.append (i.value.to_string ()); return; }
+            var f = value as Float;
+            if (f != null) { emit_float (f.value); return; }
+            var b = value as Boolean;
+            if (b != null) { buf.append (b.value ? "true" : "false"); return; }
+            var odt = value as OffsetDateTime;
+            if (odt != null) { buf.append (format_offset_datetime (odt.value)); return; }
+            var ldt = value as LocalDateTime;
+            if (ldt != null) { buf.append (format_local_datetime (ldt)); return; }
+            var ld = value as LocalDate;
+            if (ld != null) { buf.append (format_local_date (ld.value)); return; }
+            var lt = value as LocalTime;
+            if (lt != null) { buf.append (format_local_time (lt)); return; }
+            var table = value as Table;
+            if (table != null) { emit_inline_table (table, base_indent); return; }
+            var array = value as Array;
+            if (array != null) { emit_inline_array (array, base_indent); return; }
+            throw new WriteError.FAILED ("unsupported value type");
         }
 
         private void validate_inline_table (Table table) throws WriteError {
-            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                Bytes key_b = table.key_bytes_list[ki];
-                uint8[] key = key_b.get_data ();
-                var value = table.get_bytes (key);
+            foreach (var key in table.key_order_list) {
+                var value = table.get (key);
                 var arr = value as Array;
                 if (arr != null && is_array_of_tables (arr) && !arr.style.inline) {
                     throw new WriteError.FAILED ("inline table cannot contain array-of-tables");
@@ -301,15 +275,14 @@ namespace Toml {
             if (!table.style.multiline) {
                 buf.append ("{ ");
                 bool first = true;
-                for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                    uint8[] key = table.key_bytes_list[ki].get_data ();
+                foreach (var key in table.key_order_list) {
                     if (!first) {
                         buf.append (", ");
                     }
                     first = false;
-                    emit_key_bytes (key);
+                    emit_key (key);
                     buf.append (" = ");
-                    emit_value (table.get_bytes (key), base_indent);
+                    emit_value (table.get (key), base_indent);
                 }
                 buf.append (" }");
                 return;
@@ -318,16 +291,15 @@ namespace Toml {
             int ind = resolve_indent (table.style.indent);
             buf.append ("{\n");
             bool first_ml = true;
-            for (int ki = 0; ki < table.key_bytes_list.size; ki++) {
-                uint8[] key = table.key_bytes_list[ki].get_data ();
+            foreach (var key in table.key_order_list) {
                 if (!first_ml) {
                     buf.append (",\n");
                 }
                 first_ml = false;
                 append_spaces (base_indent + ind);
-                emit_key_bytes (key);
+                emit_key (key);
                 buf.append (" = ");
-                emit_value (table.get_bytes (key), base_indent + ind);
+                emit_value (table.get (key), base_indent + ind);
             }
             buf.append_c ('\n');
             append_spaces (base_indent);

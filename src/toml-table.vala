@@ -113,8 +113,8 @@ namespace Toml {
                                          Gee.HashSet<unowned Value> seen) {
         unowned Table? table = cur as Table;
         if (table != null) {
-            foreach (var key_bytes in table.key_bytes_list) {
-                drain_collect_child (table.get_bytes (key_bytes.get_data ()),
+            foreach (var key in table.key_order_list) {
+                drain_collect_child (table.get (key),
                                      hold, queue, seen);
             }
             return;
@@ -148,8 +148,8 @@ namespace Toml {
                                          Gee.HashMap<unowned Value, int> edge_count) {
         unowned Table? table = cur as Table;
         if (table != null) {
-            foreach (var key_bytes in table.key_bytes_list) {
-                drain_count_child_edge (table.get_bytes (key_bytes.get_data ()),
+            foreach (var key in table.key_order_list) {
+                drain_count_child_edge (table.get (key),
                                         seen, edge_count);
             }
             return;
@@ -183,8 +183,8 @@ namespace Toml {
                                              Gee.ArrayList<unowned Value> seed_queue) {
         unowned Table? table = cur as Table;
         if (table != null) {
-            foreach (var key_bytes in table.key_bytes_list) {
-                drain_enqueue_seen_child (table.get_bytes (key_bytes.get_data ()),
+            foreach (var key in table.key_order_list) {
+                drain_enqueue_seen_child (table.get (key),
                                           seen, preserve, seed_queue);
             }
             return;
@@ -213,8 +213,8 @@ namespace Toml {
             }
             var table = cur as Table;
             if (table != null) {
-                foreach (var key_bytes in table.key_bytes_list) {
-                    Value? child = table.get_bytes (key_bytes.get_data ());
+                foreach (var key in table.key_order_list) {
+                    Value? child = table.get (key);
                     if (child == null) {
                         continue;
                     }
@@ -250,68 +250,56 @@ namespace Toml {
         /** Emission style for this table. */
         public TableStyle style;
 
-        private Gee.HashMap<string, Value> entries;
-        private Gee.ArrayList<Bytes> key_bytes_order;
+        private Gee.HashMap<Key?, Value> entries;
+        private Gee.ArrayList<Key?> key_order;
         private bool disposing;
 
         /** Create an empty table. */
         public Table () {
-            kind = ValueKind.TABLE;
             style = TableStyle ();
-            entries = new Gee.HashMap<string, Value> ();
-            key_bytes_order = new Gee.ArrayList<Bytes> ();
+            entries = new Gee.HashMap<Key?, Value> (
+                (k) => k.hash (),
+                (a, b) => a.equal_to (b));
+            key_order = new Gee.ArrayList<Key?> ((a, b) => a.equal_to (b));
             disposing = false;
         }
 
         /** Number of keys. */
         public int size {
-            get { return key_bytes_order.size; }
+            get { return key_order.size; }
         }
 
-        /** Keys in insertion order (decoded as strings). */
-        public Gee.List<string> keys {
+        /** Keys in insertion order. */
+        public Gee.List<Key?> keys {
             owned get {
-                var list = new Gee.ArrayList<string> ();
-                foreach (var kb in key_bytes_order) {
-                    list.add (Value.string_from_bytes (kb.get_data ()));
+                var list = new Gee.ArrayList<Key?> ((a, b) => a.equal_to (b));
+                foreach (var key in key_order) {
+                    list.add (key);
                 }
                 return list;
             }
         }
 
-        internal Gee.List<Bytes> key_bytes_list {
-            get { return key_bytes_order; }
+        internal Gee.List<Key?> key_order_list {
+            get { return key_order; }
         }
 
-        /** Set a key from a Vala string. */
-        public new void set (string key, Value value) throws ValueError {
-            set_bytes (key.data, value);
-        }
-
-        /** Set a key from raw key bytes. */
-        public void set_bytes (uint8[] key_bytes, Value value) throws ValueError {
+        public new void set (Key key, Value value) throws ValueError {
             if ((value is Table || value is Array) && value_reaches (value, this)) {
                 throw new ValueError.INVALID ("cyclic DOM");
             }
-            set_bytes_unchecked (key_bytes, value);
+            set_unchecked (key, value);
         }
 
-        internal void set_bytes_unchecked (uint8[] key_bytes, Value value) {
-            string map_key = map_key_from_bytes (key_bytes);
-            if (!entries.has_key (map_key)) {
-                key_bytes_order.add (new Bytes (Value.bytes_copy (key_bytes)));
+        internal void set_unchecked (Key key, Value value) {
+            if (!entries.has_key (key)) {
+                key_order.add (key);
             }
-            entries[map_key] = value;
+            entries[key] = value;
         }
 
-        /** Get a value by string key, or null. */
-        public new Value? get (string key) {
-            return entries[map_key_from_bytes (key.data)];
-        }
-
-        /** Get a value by raw key bytes, or null. */
-        public Value? get_bytes (uint8[] key_bytes) {
-            return entries[map_key_from_bytes (key_bytes)];
+        public new Value? get (Key key) {
+            return entries[key];
         }
 
         /**
@@ -319,37 +307,26 @@ namespace Toml {
          *
          * @return true if the key existed
          */
-        public bool unset (string key) {
-            string map_key = map_key_from_bytes (key.data);
-            if (!entries.unset (map_key)) {
+        public bool unset (Key key) {
+            if (!entries.unset (key)) {
                 return false;
             }
-            for (int i = 0; i < key_bytes_order.size; i++) {
-                if (map_key_from_bytes (key_bytes_order[i].get_data ()) == map_key) {
-                    key_bytes_order.remove_at (i);
+            for (int i = 0; i < key_order.size; i++) {
+                if (key_order[i].equal_to (key)) {
+                    key_order.remove_at (i);
                     break;
                 }
             }
             return true;
         }
 
-        /** Whether a string key exists. */
-        public bool has (string key) {
-            return entries.has_key (map_key_from_bytes (key.data));
-        }
-
-        /** Whether a raw-bytes key exists. */
-        public bool has_bytes (uint8[] key_bytes) {
-            return entries.has_key (map_key_from_bytes (key_bytes));
-        }
-
-        public override Table? as_table () {
-            return this;
+        public bool has (Key key) {
+            return entries.has_key (key);
         }
 
         internal void clear_entries_for_dispose () {
             entries.clear ();
-            key_bytes_order.clear ();
+            key_order.clear ();
         }
 
         ~Table () {
@@ -357,14 +334,6 @@ namespace Toml {
                 disposing = true;
                 drain_container_tree (this);
             }
-        }
-
-        internal static string map_key_from_bytes (uint8[] bytes) {
-            var hex = new StringBuilder ();
-            for (int i = 0; i < bytes.length; i++) {
-                hex.append_printf ("%02x", bytes[i]);
-            }
-            return hex.str;
         }
     }
 }

@@ -1,3 +1,5 @@
+using Toml;
+
 void test_json_roundtrip_scalar () {
     try {
         var t = Toml.parse_string ("a = 1\n");
@@ -72,7 +74,7 @@ void test_json_decode_nesting_over_limit_fails () {
 void test_json_encode_nesting_over_limit_fails () {
     try {
         var root = new Toml.Table ();
-        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING));
         Toml.table_to_tagged_json (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
@@ -95,7 +97,7 @@ void test_json_encode_nesting_at_limit_ok () {
     try {
         var root = new Toml.Table ();
         // root + (MAX-1) arrays = MAX enters
-        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
         string json = Toml.table_to_tagged_json (root);
         assert (json != null && json.has_prefix ("{"));
     } catch (Error e) {
@@ -108,10 +110,10 @@ void test_json_encode_cyclic_dom_fails () {
     t.style.inline = true;
     var a = new Toml.Array ();
     a.style.inline = true;
-    t.set_bytes_unchecked ("a".data, a);
+    t.set_unchecked (Key (new Bytes ("a".data)), a);
     a.add_unchecked (t);
     var root = new Toml.Table ();
-    root.set_bytes_unchecked ("x".data, t);
+    root.set_unchecked (Key (new Bytes ("x".data)), t);
     try {
         Toml.table_to_tagged_json (root);
         assert_not_reached ();

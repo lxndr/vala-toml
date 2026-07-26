@@ -41,7 +41,10 @@ namespace Toml {
 
         public Token.with_bytes (TokenKind kind, uint8[] bytes, int line, int column) {
             this.kind = kind;
-            this.bytes = Value.bytes_copy (bytes);
+            this.bytes = new uint8[bytes.length];
+            if (bytes.length > 0) {
+                Memory.copy (this.bytes, bytes, bytes.length);
+            }
             this.text = bytes_to_visible_text (this.bytes);
             this.line = line;
             this.column = column;

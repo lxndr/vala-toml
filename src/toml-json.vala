@@ -42,17 +42,11 @@ namespace Toml {
         }
 
         private void append_value (Value value) throws WriteError {
-            switch (value.kind) {
-            case ValueKind.TABLE:
-                append_table ((Table) value);
-                break;
-            case ValueKind.ARRAY:
-                append_array ((Array) value);
-                break;
-            default:
-                append_scalar (value);
-                break;
-            }
+            var table = value as Table;
+            if (table != null) { append_table (table); return; }
+            var array = value as Array;
+            if (array != null) { append_array (array); return; }
+            append_scalar (value);
         }
 
         private void append_table (Table table) throws WriteError {
@@ -60,15 +54,14 @@ namespace Toml {
             try {
                 sb.append_c ('{');
                 bool first = true;
-                for (int i = 0; i < table.key_bytes_list.size; i++) {
+                foreach (var key in table.key_order_list) {
                     if (!first) {
                         sb.append_c (',');
                     }
                     first = false;
-                    uint8[] kb = table.key_bytes_list[i].get_data ();
-                    append_json_string_bytes (sb, kb);
+                    append_json_string_bytes (sb, key.bytes.get_data ());
                     sb.append_c (':');
-                    append_value (table.get_bytes (kb));
+                    append_value (table.get (key));
                 }
                 sb.append_c ('}');
             } finally {
@@ -93,59 +86,23 @@ namespace Toml {
         }
 
         private void append_scalar (Value value) {
-            string type_name;
-            switch (value.kind) {
-            case ValueKind.STRING:
-                type_name = "string";
+            var s = value as String;
+            if (s != null) {
                 sb.append ("{\"type\":");
-                append_json_string_text (sb, type_name);
+                append_json_string_text (sb, "string");
                 sb.append (",\"value\":");
-                append_json_string_bytes (sb, value.get_string_bytes ());
+                append_json_string_bytes (sb, s.bytes.get_data ());
                 sb.append_c ('}');
                 return;
-            case ValueKind.INTEGER:
-                type_name = "integer";
-                append_tagged (sb, type_name, value.get_integer ().to_string ());
-                return;
-            case ValueKind.FLOAT:
-                type_name = "float";
-                append_tagged (sb, type_name, encode_float (value.get_float ()));
-                return;
-            case ValueKind.BOOLEAN:
-                type_name = "bool";
-                append_tagged (sb, type_name, value.get_boolean () ? "true" : "false");
-                return;
-            case ValueKind.OFFSET_DATETIME: {
-                type_name = "datetime";
-                var dt = value.get_offset_datetime ();
-                assert (dt != null);
-                append_tagged (sb, type_name, format_offset_datetime (dt));
-                return;
             }
-            case ValueKind.LOCAL_DATETIME: {
-                type_name = "datetime-local";
-                var ldt = value.get_local_datetime ();
-                assert (ldt != null);
-                append_tagged (sb, type_name, format_local_datetime (ldt));
-                return;
-            }
-            case ValueKind.LOCAL_DATE: {
-                type_name = "date-local";
-                var d = value.get_local_date ();
-                assert (d != null);
-                append_tagged (sb, type_name, format_local_date (d));
-                return;
-            }
-            case ValueKind.LOCAL_TIME: {
-                type_name = "time-local";
-                var t = value.get_local_time ();
-                assert (t != null);
-                append_tagged (sb, type_name, format_local_time (t));
-                return;
-            }
-            default:
-                assert_not_reached ();
-            }
+            var i = value as Integer; if (i != null) { append_tagged (sb, "integer", i.value.to_string ()); return; }
+            var f = value as Float; if (f != null) { append_tagged (sb, "float", encode_float (f.value)); return; }
+            var b = value as Boolean; if (b != null) { append_tagged (sb, "bool", b.value ? "true" : "false"); return; }
+            var odt = value as OffsetDateTime; if (odt != null) { append_tagged (sb, "datetime", format_offset_datetime (odt.value)); return; }
+            var ldt = value as LocalDateTime; if (ldt != null) { append_tagged (sb, "datetime-local", format_local_datetime (ldt)); return; }
+            var ld = value as LocalDate; if (ld != null) { append_tagged (sb, "date-local", format_local_date (ld.value)); return; }
+            var lt = value as LocalTime; if (lt != null) { append_tagged (sb, "time-local", format_local_time (lt)); return; }
+            assert_not_reached ();
         }
     }
 
@@ -316,8 +273,7 @@ namespace Toml {
         private Value parse_object () throws Error {
             expect ('{');
             skip_ws ();
-            var keys = new Gee.HashMap<string, Value> ();
-            var key_bytes = new Gee.HashMap<string, Bytes> ();
+            var keys = new Gee.HashMap<Key?, Value> ((k) => k.hash (), (a, b) => a.equal_to (b));
             if (peek () == '}') {
                 advance ();
                 return new Table ();
@@ -325,19 +281,18 @@ namespace Toml {
             while (true) {
                 skip_ws ();
                 uint8[] kb = parse_string_bytes ();
-                string map_key = Table.map_key_from_bytes (kb);
+                Key key = Key (new Bytes (kb));
                 skip_ws ();
                 expect (':');
                 skip_ws ();
                 Value val;
                 if (peek () == '"') {
                     uint8[] bytes = parse_string_bytes ();
-                    val = Value.from_string_bytes (bytes);
+                    val = new String (new Bytes (bytes));
                 } else {
                     val = parse_value ();
                 }
-                keys[map_key] = val;
-                key_bytes[map_key] = new Bytes (kb);
+                keys[key] = val;
                 skip_ws ();
                 if (peek () == ',') {
                     advance ();
@@ -347,24 +302,24 @@ namespace Toml {
             }
             expect ('}');
 
-            string type_mk = Table.map_key_from_bytes ("type".data);
-            string value_mk = Table.map_key_from_bytes ("value".data);
-            if (keys.size == 2 && keys.has_key (type_mk) && keys.has_key (value_mk)) {
-                var type_v = keys[type_mk];
-                var value_v = keys[value_mk];
-                if (type_v.kind == ValueKind.STRING && value_v.kind == ValueKind.STRING) {
-                    return tagged_from (type_v.get_string (), value_v.get_string_bytes ());
+            Key type_key = Key.from_str ("type");
+            Key value_key = Key.from_str ("value");
+            if (keys.size == 2 && keys.has_key (type_key) && keys.has_key (value_key)) {
+                var type_v = keys[type_key] as String;
+                var value_v = keys[value_key] as String;
+                if (type_v != null && value_v != null) {
+                    return tagged_from (type_v.to_string (), value_v.bytes.get_data ());
                 }
             }
 
             var table = new Table ();
-            foreach (var mk in keys.keys) {
+            foreach (var key in keys.keys) {
                 // Nested tables from JSON are value-position / inline
-                var child = keys[mk] as Table;
+                var child = keys[key] as Table;
                 if (child != null) {
                     child.style.inline = true;
                 }
-                table.set_bytes_unchecked (key_bytes[mk].get_data (), keys[mk]);
+                table.set_unchecked (key, keys[key]);
             }
             return table;
         }
@@ -399,43 +354,43 @@ namespace Toml {
         }
 
         private Value tagged_from (string type_name, uint8[]? encoded_bytes) throws Error {
-            string encoded = Value.string_from_bytes (encoded_bytes);
+            string encoded = string_from_bytes (new Bytes (encoded_bytes ?? new uint8[0]));
             switch (type_name) {
             case "string":
-                return Value.from_string_bytes (encoded_bytes ?? new uint8[0]);
+                return new String (new Bytes (encoded_bytes ?? new uint8[0]));
             case "integer":
-                return Value.from_integer (int64.parse (encoded));
+                return new Integer (int64.parse (encoded));
             case "float":
-                return Value.from_float (decode_float (encoded));
+                return new Float (decode_float (encoded));
             case "bool":
                 if (encoded == "true") {
-                    return Value.from_boolean (true);
+                    return new Boolean (true);
                 }
                 if (encoded == "false") {
-                    return Value.from_boolean (false);
+                    return new Boolean (false);
                 }
                 throw new ParseError.FAILED ("invalid bool value: %s".printf (encoded));
             case "datetime":
                 try {
-                    return Value.from_offset_datetime (parse_offset_datetime (encoded));
+                    return new OffsetDateTime (parse_offset_datetime (encoded));
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (e.message);
                 }
             case "datetime-local":
                 try {
-                    return Value.from_local_datetime (parse_local_datetime (encoded));
+                    return parse_local_datetime (encoded);
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (e.message);
                 }
             case "date-local":
                 try {
-                    return Value.from_local_date (parse_local_date (encoded));
+                    return new LocalDate (parse_local_date (encoded));
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (e.message);
                 }
             case "time-local":
                 try {
-                    return Value.from_local_time (parse_local_time (encoded));
+                    return parse_local_time (encoded);
                 } catch (ValueError e) {
                     throw new ParseError.FAILED (e.message);
                 }

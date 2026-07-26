@@ -1,3 +1,5 @@
+using Toml;
+
 void test_local_time_ok () {
     try {
         var t = new Toml.LocalTime (7, 32, 0, 0);
@@ -211,8 +213,8 @@ void test_values_equal_offset_datetime_same () {
     try {
         var tz = new TimeZone.utc ();
         var dt = new DateTime (tz, 1979, 5, 27, 7, 32, 0.0);
-        var a = Toml.Value.from_offset_datetime (dt);
-        var b = Toml.Value.from_offset_datetime (dt);
+        var a = new OffsetDateTime (dt);
+        var b = new OffsetDateTime (dt);
         assert (Toml.values_equal (a, b));
     } catch (Error e) {
         assert_not_reached ();
@@ -223,8 +225,8 @@ void test_values_equal_offset_datetime_different_offset () {
     try {
         var tz_utc = new TimeZone.utc ();
         var tz_minus7 = new TimeZone.offset ((int) (-7 * TimeSpan.HOUR / TimeSpan.SECOND));
-        var a = Toml.Value.from_offset_datetime (new DateTime (tz_utc, 1979, 5, 27, 7, 32, 0.0));
-        var b = Toml.Value.from_offset_datetime (new DateTime (tz_minus7, 1979, 5, 27, 7, 32, 0.0));
+        var a = new OffsetDateTime (new DateTime (tz_utc, 1979, 5, 27, 7, 32, 0.0));
+        var b = new OffsetDateTime (new DateTime (tz_minus7, 1979, 5, 27, 7, 32, 0.0));
         assert (!Toml.values_equal (a, b));
     } catch (Error e) {
         assert_not_reached ();

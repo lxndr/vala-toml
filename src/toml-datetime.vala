@@ -1,5 +1,5 @@
 namespace Toml {
-    public class LocalTime {
+    public class LocalTime : Value {
         public int hour { get; private set; }
         public int minute { get; private set; }
         public int second { get; private set; }
@@ -26,7 +26,7 @@ namespace Toml {
         }
     }
 
-    public class LocalDateTime {
+    public class LocalDateTime : Value {
         public Date date { get; private set; }
         public LocalTime time { get; private set; }
 

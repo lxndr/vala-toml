@@ -1,3 +1,5 @@
+using Toml;
+
 void test_lexer_key_equals_number () {
     try {
         var lex = new Toml.Lexer ("answer = 42\n");

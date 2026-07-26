@@ -1,8 +1,10 @@
+using Toml;
+
 void test_write_simple () {
     try {
         var t = new Toml.Table ();
-        t.set ("a", Toml.Value.from_integer (1));
-        t.set ("b", Toml.Value.from_string ("x"));
+        t.set (Key.from_str ("a"), new Integer (1));
+        t.set (Key.from_str ("b"), new String.from_str ("x"));
         var s = Toml.write_string (t);
         assert (s.contains ("a = 1"));
         assert (s.contains ("b = \"x\""));
@@ -15,8 +17,8 @@ void test_write_nested_standard_table () {
     try {
         var root = new Toml.Table ();
         var foo = new Toml.Table ();
-        foo.set ("bar", Toml.Value.from_integer (1));
-        root.set ("foo", foo);
+        foo.set (Key.from_str ("bar"), new Integer (1));
+        root.set (Key.from_str ("foo"), foo);
         var s = Toml.write_string (root);
         assert (s.contains ("[foo]"));
         assert (s.contains ("bar = 1"));
@@ -30,9 +32,9 @@ void test_write_inline_table () {
         var root = new Toml.Table ();
         var point = new Toml.Table ();
         point.style.inline = true;
-        point.set ("x", Toml.Value.from_integer (1));
-        point.set ("y", Toml.Value.from_integer (2));
-        root.set ("point", point);
+        point.set (Key.from_str ("x"), new Integer (1));
+        point.set (Key.from_str ("y"), new Integer (2));
+        root.set (Key.from_str ("point"), point);
         assert (Toml.write_string (root) == "point = { x = 1, y = 2 }\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -45,9 +47,9 @@ void test_write_multiline_inline_table () {
         var point = new Toml.Table ();
         point.style.inline = true;
         point.style.multiline = true;
-        point.set ("x", Toml.Value.from_integer (1));
-        point.set ("y", Toml.Value.from_integer (2));
-        root.set ("point", point);
+        point.set (Key.from_str ("x"), new Integer (1));
+        point.set (Key.from_str ("y"), new Integer (2));
+        root.set (Key.from_str ("point"), point);
         // indent from WriteOptions default (2); no trailing comma
         assert (Toml.write_string (root) == "point = {\n  x = 1,\n  y = 2\n}\n");
     } catch (Error e) {
@@ -60,9 +62,9 @@ void test_write_array_multiline () {
         var root = new Toml.Table ();
         var nums = new Toml.Array ();
         nums.style.multiline = true;
-        nums.add (Toml.Value.from_integer (1));
-        nums.add (Toml.Value.from_integer (2));
-        root.set ("nums", nums);
+        nums.add (new Integer (1));
+        nums.add (new Integer (2));
+        root.set (Key.from_str ("nums"), nums);
         assert (Toml.write_string (root) == "nums = [\n  1,\n  2\n]\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -75,8 +77,8 @@ void test_write_multiline_indent_override () {
         var nums = new Toml.Array ();
         nums.style.multiline = true;
         nums.style.indent = 4;
-        nums.add (Toml.Value.from_integer (1));
-        root.set ("nums", nums);
+        nums.add (new Integer (1));
+        root.set (Key.from_str ("nums"), nums);
         assert (Toml.write_string (root) == "nums = [\n    1\n]\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -88,9 +90,9 @@ void test_write_aot_standard () {
         var root = new Toml.Table ();
         var products = new Toml.Array ();
         var p1 = new Toml.Table ();
-        p1.set ("name", Toml.Value.from_string ("A"));
+        p1.set (Key.from_str ("name"), new String.from_str ("A"));
         products.add (p1);
-        root.set ("products", products);
+        root.set (Key.from_str ("products"), products);
         var s = Toml.write_string (root);
         assert (s == "[[products]]\nname = \"A\"\n");
     } catch (Error e) {
@@ -105,9 +107,9 @@ void test_write_aot_inline () {
         products.style.inline = true;
         var p1 = new Toml.Table ();
         p1.style.inline = true;
-        p1.set ("name", Toml.Value.from_string ("A"));
+        p1.set (Key.from_str ("name"), new String.from_str ("A"));
         products.add (p1);
-        root.set ("products", products);
+        root.set (Key.from_str ("products"), products);
         assert (Toml.write_string (root) == "products = [ { name = \"A\" } ]\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -119,8 +121,8 @@ void test_write_dotted_keys () {
         var root = new Toml.Table ();
         root.style.dotted_keys = true;
         var a = new Toml.Table ();
-        a.set ("b", Toml.Value.from_integer (1));
-        root.set ("a", a);
+        a.set (Key.from_str ("b"), new Integer (1));
+        root.set (Key.from_str ("a"), a);
         assert (Toml.write_string (root) == "a.b = 1\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -132,7 +134,7 @@ void test_write_offset_datetime_canonical () {
         var root = new Toml.Table ();
         var tz = new TimeZone.utc ();
         var dt = new DateTime (tz, 1979, 5, 27, 7, 32, 0.0);
-        root.set ("t", Toml.Value.from_offset_datetime (dt));
+        root.set (Key.from_str ("t"), new OffsetDateTime (dt));
         assert (Toml.write_string (root) == "t = 1979-05-27T07:32:00Z\n");
     } catch (Error e) {
         assert_no_error (e);
@@ -166,15 +168,15 @@ Toml.Array nest_inline_arrays (int depth) throws Error {
 Toml.Table nest_standard_tables (int depth) throws Error {
     // depth nested tables under root key path t0.t1.… ; returns root
     var leaf = new Toml.Table ();
-    leaf.set ("v", Toml.Value.from_integer (1));
+    leaf.set (Key.from_str ("v"), new Integer (1));
     var cur = leaf;
     for (int i = 0; i < depth - 1; i++) {
         var parent = new Toml.Table ();
-        parent.set ("t", cur);
+        parent.set (Key.from_str ("t"), cur);
         cur = parent;
     }
     var root = new Toml.Table ();
-    root.set ("t", cur);
+    root.set (Key.from_str ("t"), cur);
     return root;
 }
 
@@ -182,7 +184,7 @@ void test_write_inline_array_nesting_at_limit_ok () {
     try {
         var root = new Toml.Table ();
         // root + (MAX-1) arrays = MAX enters
-        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING - 1));
         string s = Toml.write_string (root);
         assert (s != null && s.has_prefix ("a = "));
     } catch (Error e) {
@@ -193,7 +195,7 @@ void test_write_inline_array_nesting_at_limit_ok () {
 void test_write_inline_array_nesting_over_limit_fails () {
     try {
         var root = new Toml.Table ();
-        root.set ("a", nest_inline_arrays (Toml.MAX_VALUE_NESTING));
+        root.set (Key.from_str ("a"), nest_inline_arrays (Toml.MAX_VALUE_NESTING));
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {
@@ -221,10 +223,10 @@ void test_write_cyclic_dom_fails () {
     t.style.inline = true;
     var a = new Toml.Array ();
     a.style.inline = true;
-    t.set_bytes_unchecked ("a".data, a);
+    t.set_unchecked (Key (new Bytes ("a".data)), a);
     a.add_unchecked (t);
     var root = new Toml.Table ();
-    root.set_bytes_unchecked ("x".data, t);
+    root.set_unchecked (Key (new Bytes ("x".data)), t);
     try {
         Toml.write_string (root);
         assert_not_reached ();
@@ -240,8 +242,8 @@ void test_write_error_inline_table_with_aot () {
         bad.style.inline = true;
         var aot = new Toml.Array ();
         aot.add (new Toml.Table ());
-        bad.set ("x", aot);
-        root.set ("bad", bad);
+        bad.set (Key.from_str ("x"), aot);
+        root.set (Key.from_str ("bad"), bad);
         Toml.write_string (root);
         assert_not_reached ();
     } catch (Toml.WriteError e) {

@@ -11,7 +11,6 @@ namespace Toml {
 
         /** Create an empty array. */
         public Array () {
-            kind = ValueKind.ARRAY;
             style = ArrayStyle ();
             items = new Gee.ArrayList<Value> ();
             disposing = false;
@@ -50,10 +49,6 @@ namespace Toml {
                 throw new ValueError.INVALID ("cyclic DOM");
             }
             items[index] = value;
-        }
-
-        public override Array? as_array () {
-            return this;
         }
 
         internal void clear_items_for_dispose () {

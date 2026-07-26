@@ -5,6 +5,8 @@ vala_toml_sources = files(
   'toml-style.vala',
   'toml-key.vala',
   'toml-value.vala',
+  'toml-string.vala',
+  'toml-scalars.vala',
   'toml-table.vala',
   'toml-array.vala',
   'toml-equal.vala',

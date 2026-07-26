@@ -1,8 +1,10 @@
+using Toml;
+
 void test_parse_simple_pair () {
     try {
         var t = Toml.parse_string ("a = 1\nb = \"hi\"\n");
-        assert (t.get ("a").get_integer () == 1);
-        assert (t.get ("b").get_string () == "hi");
+        assert (((Integer) t.get (Key.from_str ("a"))).value == 1);
+        assert (((String) t.get (Key.from_str ("b"))).to_string () == "hi");
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -11,8 +13,8 @@ void test_parse_simple_pair () {
 void test_parse_bool_float () {
     try {
         var t = Toml.parse_string ("ok = true\nn = 1.0\n");
-        assert (t.get ("ok").get_boolean () == true);
-        assert (t.get ("n").kind == Toml.ValueKind.FLOAT);
+        assert (((Boolean) t.get (Key.from_str ("ok"))).value == true);
+        assert (t.get (Key.from_str ("n")) is Float);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -21,7 +23,7 @@ void test_parse_bool_float () {
 void test_parse_standard_table () {
     try {
         var t = Toml.parse_string ("[foo]\nbar = 1\n");
-        assert (t.get ("foo").as_table ().get ("bar").get_integer () == 1);
+        assert (((Integer) ((Table) t.get (Key.from_str ("foo"))).get (Key.from_str ("bar"))).value == 1);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -30,7 +32,7 @@ void test_parse_standard_table () {
 void test_parse_dotted_key () {
     try {
         var t = Toml.parse_string ("a.b.c = 1\n");
-        assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
+        assert (((Integer) ((Table) ((Table) t.get (Key.from_str ("a"))).get (Key.from_str ("b"))).get (Key.from_str ("c"))).value == 1);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -57,7 +59,7 @@ void test_parse_value_then_header_fails () {
 void test_parse_header_then_dotted_key () {
     try {
         var t = Toml.parse_string ("[a]\nb.c = 1\n");
-        assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
+        assert (((Integer) ((Table) ((Table) t.get (Key.from_str ("a"))).get (Key.from_str ("b"))).get (Key.from_str ("c"))).value == 1);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -66,8 +68,8 @@ void test_parse_header_then_dotted_key () {
 void test_parse_header_implicit_reopen () {
     try {
         var t = Toml.parse_string ("[a.b]\nc = 1\n[a]\nd = 2\n");
-        assert (t.get ("a").as_table ().get ("b").as_table ().get ("c").get_integer () == 1);
-        assert (t.get ("a").as_table ().get ("d").get_integer () == 2);
+        assert (((Integer) ((Table) ((Table) t.get (Key.from_str ("a"))).get (Key.from_str ("b"))).get (Key.from_str ("c"))).value == 1);
+        assert (((Integer) ((Table) t.get (Key.from_str ("a"))).get (Key.from_str ("d"))).value == 2);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -100,7 +102,7 @@ void test_parse_invalid_utf8_fails () {
 void test_parse_numeric_bare_key () {
     try {
         var t = Toml.parse_string ("123 = 1\n");
-        assert (t.get ("123").get_integer () == 1);
+        assert (((Integer) t.get (Key.from_str ("123"))).value == 1);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -109,7 +111,7 @@ void test_parse_numeric_bare_key () {
 void test_parse_date_shaped_bare_key () {
     try {
         var t = Toml.parse_string ("1979-05-27 = 1\n");
-        assert (t.get ("1979-05-27").get_integer () == 1);
+        assert (((Integer) t.get (Key.from_str ("1979-05-27"))).value == 1);
     } catch (Error e) {
         assert_no_error (e);
     }
@@ -127,7 +129,7 @@ void test_parse_signed_integer_key_fails () {
 void test_parse_array () {
     try {
         var t = Toml.parse_string ("nums = [1, 2, 3]\n");
-        var a = t.get ("nums").as_array ();
+        var a = (Toml.Array) t.get (Key.from_str ("nums"));
         assert (a.size == 3);
         assert (!a.style.multiline);
     } catch (Error e) {
@@ -138,8 +140,8 @@ void test_parse_array () {
 void test_parse_inline_table_neutral_style () {
     try {
         var t = Toml.parse_string ("point = { x = 1, y = 2 }\n");
-        var p = t.get ("point").as_table ();
-        assert (p.get ("x").get_integer () == 1);
+        var p = (Table) t.get (Key.from_str ("point"));
+        assert (((Integer) p.get (Key.from_str ("x"))).value == 1);
         assert (!p.style.inline);
     } catch (Error e) {
         assert_no_error (e);
@@ -149,10 +151,10 @@ void test_parse_inline_table_neutral_style () {
 void test_parse_array_of_tables () {
     try {
         var t = Toml.parse_string ("[[products]]\nname = \"A\"\n[[products]]\nname = \"B\"\n");
-        var a = t.get ("products").as_array ();
+        var a = (Toml.Array) t.get (Key.from_str ("products"));
         assert (a.size == 2);
-        assert (a.get (0).as_table ().get ("name").get_string () == "A");
-        assert (a.get (1).as_table ().get ("name").get_string () == "B");
+        assert (((String) ((Table) a.get (0)).get (Key.from_str ("name"))).to_string () == "A");
+        assert (((String) ((Table) a.get (1)).get (Key.from_str ("name"))).to_string () == "B");
         assert (!a.style.inline);
     } catch (Error e) {
         assert_no_error (e);
