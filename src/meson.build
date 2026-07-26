@@ -17,14 +17,10 @@ vala_toml_sources = files(
   'toml-json.vala',
 )
 
-vala_toml_c_sources = files(
-  'toml-value-refcount.c',
-)
-
 # Filenames must be basename-only so valac pairs internal header correctly.
 vala_toml_lib = static_library(
   'vala-toml',
-  vala_toml_sources + vala_toml_c_sources,
+  vala_toml_sources,
   dependencies: vala_toml_deps,
   vala_header: 'vala-toml.h',
   vala_vapi: 'vala-toml.vapi',
