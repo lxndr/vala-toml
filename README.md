@@ -89,64 +89,149 @@ root.set ("path", nested);
 stdout.printf ("%s", Toml.write_string (root));
 ```
 
-## API overview
+## API reference
 
-Namespace: `Toml`. Callers must handle `ParseError` / `WriteError` where thrown, and `ValueError` from typed datetime constructors; examples above omit `try`/`catch`. Fuller descriptions are in gtk-doc comments under `src/`. Lexer, parser, and tagged-JSON helpers are internal.
+Namespace `Toml`. Examples above omit `try`/`catch`; callers must handle
+`ParseError`, `WriteError`, and `ValueError` where thrown.
 
-### Entry points
+`parse_string` rejects invalid UTF-8 with `ParseError`. Bare carriage
+returns and disallowed control characters are rejected during lexing.
+Bytes and streams are the caller’s responsibility — convert to/from
+`string` yourself. Lexer, parser, writer, and tagged-JSON helpers are
+internal. Fuller gtk-doc comments live under `src/`.
 
-- `parse_string (string text)` → `Table` — parse UTF-8 TOML text
-- `parse_bytes (uint8[] data)` → `Table` — parse UTF-8 bytes
-- `parse (InputStream stream)` → `Table` — read stream and parse
-- `write_string (Table root, WriteOptions? options = null)` → `string` — serialize to TOML text
-- `write (Table root, OutputStream stream, WriteOptions? options = null)` — serialize to a stream
+```vala
+namespace Toml {
+    public Table parse_string (string text) throws ParseError;
+    public string write_string (Table root, WriteOptions? options = null) throws WriteError;
+    public bool values_equal (Value? a, Value? b);
 
-### Errors
+    public errordomain ParseError {
+        FAILED
+    }
 
-- `ParseError.FAILED` — invalid TOML or parse I/O failure
-- `WriteError.FAILED` — emission or write I/O failure
-- `ValueError.INVALID` — invalid arguments when constructing a typed value
+    public errordomain WriteError {
+        FAILED
+    }
 
-### ValueKind
+    public errordomain ValueError {
+        INVALID
+    }
 
-`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `OFFSET_DATETIME`, `LOCAL_DATETIME`, `LOCAL_DATE`, `LOCAL_TIME`, `TABLE`, `ARRAY`
+    public enum ValueKind {
+        STRING,
+        INTEGER,
+        FLOAT,
+        BOOLEAN,
+        OFFSET_DATETIME,
+        LOCAL_DATETIME,
+        LOCAL_DATE,
+        LOCAL_TIME,
+        TABLE,
+        ARRAY
+    }
 
-### Value
+    public class Value {
+        public ValueKind kind { get; protected set; }
 
-- `kind` — runtime `ValueKind`
-- `from_string` / `from_string_bytes` — string value
-- `from_integer` / `from_float` / `from_boolean` — scalar values
-- `from_offset_datetime` / `get_offset_datetime` — offset date-time as `GLib.DateTime`
-- `from_local_datetime` / `get_local_datetime` — local date-time as `Toml.LocalDateTime`
-- `from_local_date` / `get_local_date` — local date as `GLib.Date`
-- `from_local_time` / `get_local_time` — local time as `Toml.LocalTime`
-- `get_string` / `get_string_bytes` — string payload or null
-- `get_integer` / `get_float` / `get_boolean` — typed payload or null
-- `as_table` / `as_array` — downcast or null
+        public static Value from_string (string v);
+        public static Value from_string_bytes (uint8[] bytes);
+        public static Value from_integer (int64 v);
+        public static Value from_float (double v);
+        public static Value from_boolean (bool v);
+        public static Value from_offset_datetime (DateTime dt) throws ValueError;
+        public static Value from_local_datetime (LocalDateTime v) throws ValueError;
+        public static Value from_local_date (Date d) throws ValueError;
+        public static Value from_local_time (LocalTime t) throws ValueError;
 
-`LocalTime` stores validated hour, minute, second, and microsecond fields without a timezone. `LocalDateTime` combines a valid `GLib.Date` with a `LocalTime`, also without a timezone.
+        public string? get_string ();
+        public uint8[]? get_string_bytes ();
+        public int64? get_integer ();
+        public double? get_float ();
+        public bool? get_boolean ();
+        public DateTime? get_offset_datetime ();
+        public LocalDateTime? get_local_datetime ();
+        public Date? get_local_date ();
+        public LocalTime? get_local_time ();
+        public virtual Table? as_table ();
+        public virtual Array? as_array ();
+    }
 
-### Table
+    public class Table : Value {
+        public TableStyle style;
+        public int size { get; }
+        public Gee.List<string> keys { owned get; }
 
-- `Table ()` — empty table; `style` (`TableStyle`); `size`; `keys` (insertion order)
-- `set` / `set_bytes` — set key
-- `get` / `get_bytes` — get value or null
-- `unset` — remove key; `has` / `has_bytes` — key presence
+        public Table ();
+        public new void set (string key, Value value) throws ValueError;
+        public void set_bytes (uint8[] key_bytes, Value value) throws ValueError;
+        public new Value? get (string key);
+        public Value? get_bytes (uint8[] key_bytes);
+        public bool unset (string key);
+        public bool has (string key);
+        public bool has_bytes (uint8[] key_bytes);
+        public override Table? as_table ();
+    }
 
-### Array
+    public class Array : Value {
+        public ArrayStyle style;
+        public int size { get; }
 
-- `Array ()` — empty array; `style` (`ArrayStyle`); `size`; `iterator ()`
-- `add` — append; `get` / `set` — element by index
+        public Array ();
+        public Gee.Iterator<Value> iterator ();
+        public void add (Value value) throws ValueError;
+        public new Value get (int index);
+        public new void set (int index, Value value) throws ValueError;
+        public override Array? as_array ();
+    }
 
-### Styles
+    public class LocalTime {
+        public int hour { get; private set; }
+        public int minute { get; private set; }
+        public int second { get; private set; }
+        public int microsecond { get; private set; }
 
-- `TableStyle` — `inline`, `dotted_keys`, `multiline`, `indent` (−1 = use `WriteOptions.indent`)
-- `ArrayStyle` — `inline`, `multiline`, `indent` (−1 = use `WriteOptions.indent`)
-- `WriteOptions` — `indent` (default 2)
+        public LocalTime (int hour, int minute, int second, int microsecond = 0) throws ValueError;
+    }
 
-### Equality
+    public class LocalDateTime {
+        public Date date { get; private set; }
+        public LocalTime time { get; private set; }
 
-- `values_equal (Value? a, Value? b)` — deep structural equality
+        public LocalDateTime (Date date, LocalTime time) throws ValueError;
+    }
+
+    public struct TableStyle {
+        public bool inline;
+        public bool dotted_keys;
+        public bool multiline;
+        public int indent;
+
+        public TableStyle ();
+    }
+
+    public struct ArrayStyle {
+        public bool inline;
+        public bool multiline;
+        public int indent;
+
+        public ArrayStyle ();
+    }
+
+    public struct WriteOptions {
+        public int indent;
+
+        public WriteOptions ();
+    }
+}
+```
+
+`ParseError.FAILED` — invalid UTF-8 or invalid TOML.
+`WriteError.FAILED` — emission failure.
+`ValueError.INVALID` — invalid arguments when constructing a typed value.
+
+`TableStyle.indent` / `ArrayStyle.indent`: negative means use `WriteOptions.indent` (default 2).
+`LocalTime` / `LocalDateTime` have no timezone; offset date-times use `GLib.DateTime`.
 
 ## Dependencies
 
