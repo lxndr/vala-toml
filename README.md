@@ -103,6 +103,9 @@ internal. Fuller gtk-doc comments live under `src/`.
 `Key` and `String` store payload in `GLib.Bytes`. `to_string()` on
 either truncates at the first NUL; use `.bytes` when embedded NUL may be
 present. `write_string` rejects invalid UTF-8 in keys and strings.
+`Key` exposes `hash()` and `equal_to()` for map lookups; internally
+`Table` uses `Gee.HashMap<Key?, Value>` with explicit hash and
+equality delegates (Vala 0.56 cannot declare `Gee.Hashable` on a struct).
 
 ```vala
 namespace Toml {
@@ -125,7 +128,7 @@ namespace Toml {
     public abstract class Value {
     }
 
-    public struct Key : Gee.Hashable<Key> {
+    public struct Key {
         public Key (Bytes bytes);
         public Key.from_str (string s);
         public Bytes bytes { get; }
