@@ -7,13 +7,11 @@ namespace Toml {
         public ArrayStyle style;
 
         private Gee.ArrayList<Value> items;
-        private bool disposing;
 
         /** Create an empty array. */
         public Array () {
             style = ArrayStyle ();
             items = new Gee.ArrayList<Value> ();
-            disposing = false;
         }
 
         /** Number of elements. */
@@ -49,17 +47,6 @@ namespace Toml {
                 throw new ValueError.INVALID ("cyclic DOM");
             }
             items[index] = value;
-        }
-
-        internal void clear_items_for_dispose () {
-            items.clear ();
-        }
-
-        ~Array () {
-            if (!disposing) {
-                disposing = true;
-                drain_container_tree (this);
-            }
         }
     }
 }
