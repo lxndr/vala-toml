@@ -39,10 +39,10 @@ Parse, read, mutate, and write:
 
 ```vala
 var table = Toml.parse_string ("a = 1\n");
-assert (table.get ("a").get_integer () == 1);
+assert (((Toml.Integer) table.get (Toml.Key.from_str ("a"))).value == 1);
 
-table.set ("a", Toml.Value.from_integer (2));
-table.set ("name", Toml.Value.from_string ("hi"));
+table.set (Toml.Key.from_str ("a"), new Toml.Integer (2));
+table.set (Toml.Key.from_str ("name"), new Toml.String.from_str ("hi"));
 stdout.printf ("%s", Toml.write_string (table));
 ```
 
@@ -51,16 +51,16 @@ Nested tables and arrays:
 ```vala
 var root = new Toml.Table ();
 var child = new Toml.Table ();
-child.set ("x", Toml.Value.from_integer (9));
-root.set ("child", child);
+child.set (Toml.Key.from_str ("x"), new Toml.Integer (9));
+root.set (Toml.Key.from_str ("child"), child);
 
 var nums = new Toml.Array ();
-nums.add (Toml.Value.from_integer (1));
-nums.add (Toml.Value.from_integer (2));
-root.set ("nums", nums);
+nums.add (new Toml.Integer (1));
+nums.add (new Toml.Integer (2));
+root.set (Toml.Key.from_str ("nums"), nums);
 
-assert (root.get ("child").as_table ().get ("x").get_integer () == 9);
-assert (root.get ("nums").as_array ().get (0).get_integer () == 1);
+assert (((Toml.Integer) ((Toml.Table) root.get (Toml.Key.from_str ("child"))).get (Toml.Key.from_str ("x"))).value == 9);
+assert (((Toml.Integer) ((Toml.Array) root.get (Toml.Key.from_str ("nums"))).get (0)).value == 1);
 stdout.printf ("%s", Toml.write_string (root));
 ```
 
@@ -71,20 +71,20 @@ var root = new Toml.Table ();
 
 var point = new Toml.Table ();
 point.style.inline = true;
-point.set ("x", Toml.Value.from_integer (1));
-point.set ("y", Toml.Value.from_integer (2));
-root.set ("point", point);
+point.set (Toml.Key.from_str ("x"), new Toml.Integer (1));
+point.set (Toml.Key.from_str ("y"), new Toml.Integer (2));
+root.set (Toml.Key.from_str ("point"), point);
 
 var nums = new Toml.Array ();
 nums.style.multiline = true;
-nums.add (Toml.Value.from_integer (1));
-nums.add (Toml.Value.from_integer (2));
-root.set ("nums", nums);
+nums.add (new Toml.Integer (1));
+nums.add (new Toml.Integer (2));
+root.set (Toml.Key.from_str ("nums"), nums);
 
 var nested = new Toml.Table ();
 nested.style.dotted_keys = true;
-nested.set ("leaf", Toml.Value.from_integer (1));
-root.set ("path", nested);
+nested.set (Toml.Key.from_str ("leaf"), new Toml.Integer (1));
+root.set (Toml.Key.from_str ("path"), nested);
 
 stdout.printf ("%s", Toml.write_string (root));
 ```
@@ -99,6 +99,10 @@ returns and disallowed control characters are rejected during lexing.
 Bytes and streams are the caller’s responsibility — convert to/from
 `string` yourself. Lexer, parser, writer, and tagged-JSON helpers are
 internal. Fuller gtk-doc comments live under `src/`.
+
+`Key` and `String` store payload in `GLib.Bytes`. `to_string()` on
+either truncates at the first NUL; use `.bytes` when embedded NUL may be
+present. `write_string` rejects invalid UTF-8 in keys and strings.
 
 ```vala
 namespace Toml {
@@ -118,59 +122,76 @@ namespace Toml {
         INVALID
     }
 
-    public enum ValueKind {
-        STRING,
-        INTEGER,
-        FLOAT,
-        BOOLEAN,
-        OFFSET_DATETIME,
-        LOCAL_DATETIME,
-        LOCAL_DATE,
-        LOCAL_TIME,
-        TABLE,
-        ARRAY
+    public abstract class Value {
     }
 
-    public class Value {
-        public ValueKind kind { get; protected set; }
+    public struct Key : Gee.Hashable<Key> {
+        public Key (Bytes bytes);
+        public Key.from_str (string s);
+        public Bytes bytes { get; }
+        public string to_string ();
+        public uint hash ();
+        public bool equal_to (Key other);
+    }
 
-        public static Value from_string (string v);
-        public static Value from_string_bytes (uint8[] bytes);
-        public static Value from_integer (int64 v);
-        public static Value from_float (double v);
-        public static Value from_boolean (bool v);
-        public static Value from_offset_datetime (DateTime dt) throws ValueError;
-        public static Value from_local_datetime (LocalDateTime v) throws ValueError;
-        public static Value from_local_date (Date d) throws ValueError;
-        public static Value from_local_time (LocalTime t) throws ValueError;
+    public class String : Value {
+        public String (Bytes bytes);
+        public String.from_str (string s);
+        public Bytes bytes { get; }
+        public string to_string ();
+    }
 
-        public string? get_string ();
-        public uint8[]? get_string_bytes ();
-        public int64? get_integer ();
-        public double? get_float ();
-        public bool? get_boolean ();
-        public DateTime? get_offset_datetime ();
-        public LocalDateTime? get_local_datetime ();
-        public Date? get_local_date ();
-        public LocalTime? get_local_time ();
-        public virtual Table? as_table ();
-        public virtual Array? as_array ();
+    public class Integer : Value {
+        public int64 value { get; }
+        public Integer (int64 value);
+    }
+
+    public class Float : Value {
+        public double value { get; }
+        public Float (double value);
+    }
+
+    public class Boolean : Value {
+        public bool value { get; }
+        public Boolean (bool value);
+    }
+
+    public class OffsetDateTime : Value {
+        public DateTime value { get; }
+        public OffsetDateTime (DateTime dt) throws ValueError;
+    }
+
+    public class LocalDate : Value {
+        public Date value { get; }
+        public LocalDate (Date d) throws ValueError;
+    }
+
+    public class LocalTime : Value {
+        public int hour { get; private set; }
+        public int minute { get; private set; }
+        public int second { get; private set; }
+        public int microsecond { get; private set; }
+
+        public LocalTime (int hour, int minute, int second, int microsecond = 0) throws ValueError;
+    }
+
+    public class LocalDateTime : Value {
+        public Date date { get; private set; }
+        public LocalTime time { get; private set; }
+
+        public LocalDateTime (Date date, LocalTime time) throws ValueError;
     }
 
     public class Table : Value {
         public TableStyle style;
         public int size { get; }
-        public Gee.List<string> keys { owned get; }
+        public Gee.List<Key?> keys { owned get; }
 
         public Table ();
-        public new void set (string key, Value value) throws ValueError;
-        public void set_bytes (uint8[] key_bytes, Value value) throws ValueError;
-        public new Value? get (string key);
-        public Value? get_bytes (uint8[] key_bytes);
-        public bool unset (string key);
-        public bool has (string key);
-        public bool has_bytes (uint8[] key_bytes);
-        public override Table? as_table ();
+        public new void set (Key key, Value value) throws ValueError;
+        public new Value? get (Key key);
+        public bool unset (Key key);
+        public bool has (Key key);
     }
 
     public class Array : Value {
@@ -182,23 +203,6 @@ namespace Toml {
         public void add (Value value) throws ValueError;
         public new Value get (int index);
         public new void set (int index, Value value) throws ValueError;
-        public override Array? as_array ();
-    }
-
-    public class LocalTime {
-        public int hour { get; private set; }
-        public int minute { get; private set; }
-        public int second { get; private set; }
-        public int microsecond { get; private set; }
-
-        public LocalTime (int hour, int minute, int second, int microsecond = 0) throws ValueError;
-    }
-
-    public class LocalDateTime {
-        public Date date { get; private set; }
-        public LocalTime time { get; private set; }
-
-        public LocalDateTime (Date date, LocalTime time) throws ValueError;
     }
 
     public struct TableStyle {
@@ -227,7 +231,7 @@ namespace Toml {
 ```
 
 `ParseError.FAILED` — invalid UTF-8 or invalid TOML.
-`WriteError.FAILED` — emission failure.
+`WriteError.FAILED` — emission failure (including invalid UTF-8 in keys or strings).
 `ValueError.INVALID` — invalid arguments when constructing a typed value.
 
 `TableStyle.indent` / `ArrayStyle.indent`: negative means use `WriteOptions.indent` (default 2).
