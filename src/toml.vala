@@ -7,7 +7,9 @@ namespace Toml {
      * @throws ParseError if the source is invalid
      */
     public Table parse_string (string text) throws ParseError {
-        validate_source_bytes (text.data);
+        if (text.length > 0 && !text.validate ()) {
+            throw new ParseError.FAILED ("invalid UTF-8");
+        }
         var parser = new Parser (text);
         return parser.parse ();
     }

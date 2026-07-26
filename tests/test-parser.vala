@@ -82,6 +82,21 @@ void test_parse_duplicate_key_fails () {
     }
 }
 
+string invalid_utf8_source () {
+    // Lone 0xFF is never valid UTF-8. Null-terminated for Vala string bridging.
+    uint8[] bytes = { 0xFF, 0 };
+    return (string) bytes;
+}
+
+void test_parse_invalid_utf8_fails () {
+    try {
+        Toml.parse_string (invalid_utf8_source ());
+        assert_not_reached ();
+    } catch (Toml.ParseError e) {
+        assert (e.message != null && e.message.contains ("invalid UTF-8"));
+    }
+}
+
 void test_parse_input_stream () {
     try {
         var bytes = new GLib.Bytes.take ("k = 42\n".data);
@@ -274,6 +289,7 @@ public static int main (string[] args) {
     Test.add_func ("/toml/parser/header_then_dotted_key", test_parse_header_then_dotted_key);
     Test.add_func ("/toml/parser/header_implicit_reopen", test_parse_header_implicit_reopen);
     Test.add_func ("/toml/parser/duplicate_key_fails", test_parse_duplicate_key_fails);
+    Test.add_func ("/toml/parser/invalid_utf8_fails", test_parse_invalid_utf8_fails);
     Test.add_func ("/toml/parser/input_stream", test_parse_input_stream);
     Test.add_func ("/toml/parser/numeric_bare_key", test_parse_numeric_bare_key);
     Test.add_func ("/toml/parser/date_shaped_bare_key", test_parse_date_shaped_bare_key);
