@@ -145,52 +145,49 @@ namespace Toml {
     }
 
     public class Integer : Value {
-        public int64 value { get; }
         public Integer (int64 value);
+        public int64 value { get; }
     }
 
     public class Float : Value {
-        public double value { get; }
         public Float (double value);
+        public double value { get; }
     }
 
     public class Boolean : Value {
-        public bool value { get; }
         public Boolean (bool value);
+        public bool value { get; }
     }
 
     public class OffsetDateTime : Value {
-        public DateTime value { get; }
         public OffsetDateTime (DateTime dt) throws ValueError;
+        public DateTime value { get; }
     }
 
     public class LocalDate : Value {
-        public Date value { get; }
         public LocalDate (Date d) throws ValueError;
+        public Date value { get; }
     }
 
     public class LocalTime : Value {
+        public LocalTime (int hour, int minute, int second, int microsecond = 0) throws ValueError;
         public int hour { get; private set; }
         public int minute { get; private set; }
         public int second { get; private set; }
         public int microsecond { get; private set; }
-
-        public LocalTime (int hour, int minute, int second, int microsecond = 0) throws ValueError;
     }
 
     public class LocalDateTime : Value {
+        public LocalDateTime (Date date, LocalTime time) throws ValueError;
         public Date date { get; private set; }
         public LocalTime time { get; private set; }
-
-        public LocalDateTime (Date date, LocalTime time) throws ValueError;
     }
 
     public class Table : Value {
+        public Table ();
         public TableStyle style;
         public int size { get; }
         public Gee.List<Key?> keys { owned get; }
-
-        public Table ();
         public new void set (Key key, Value value) throws ValueError;
         public new Value? get (Key key);
         public bool unset (Key key);
@@ -198,10 +195,9 @@ namespace Toml {
     }
 
     public class Array : Value {
+        public Array ();
         public ArrayStyle style;
         public int size { get; }
-
-        public Array ();
         public Gee.Iterator<Value> iterator ();
         public void add (Value value) throws ValueError;
         public new Value get (int index);
@@ -209,26 +205,23 @@ namespace Toml {
     }
 
     public struct TableStyle {
+        public TableStyle ();
         public bool inline;
         public bool dotted_keys;
         public bool multiline;
         public int indent;
-
-        public TableStyle ();
     }
 
     public struct ArrayStyle {
+        public ArrayStyle ();
         public bool inline;
         public bool multiline;
         public int indent;
-
-        public ArrayStyle ();
     }
 
     public struct WriteOptions {
-        public int indent;
-
         public WriteOptions ();
+        public int indent;
     }
 }
 ```
